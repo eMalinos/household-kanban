@@ -1,0 +1,10 @@
+services:
+  homeassistant:
+    image: homeassistant/home-assistant:stable
+    ports:
+      - "8190:8123"
+    volumes:
+      - ./config:/config
+      - ../custom_components:/config/custom_components
+    environment:
+      - TZ=Europe/Prague
