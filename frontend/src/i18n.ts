@@ -23,8 +23,26 @@ const en = {
   hist_empty: "Nothing found", hist_more: "Load more", hist_last_week: "Last week", reopen: "Reopen",
   err_history: "Could not load the history.", err_reopen: "Could not reopen the task.",
   lists: "Lists", move_to: "Move to…", older_history: "Older in history ({n})",
-  ed_columns: "Columns", ed_done_days: "Keep done on the board (days)", ed_week_end: "Week ends",
-  ed_auto: "Automatic (locale)", ed_saturday: "Saturday", ed_sunday: "Sunday",
+  ed_columns: "Columns", ed_done_days: "Keep done on the board (days)",
+  settings: "Settings", tab_board: "Board", tab_eod: "End of day", tab_lists: "Lists & people",
+  scope_dashboard: "This dashboard only",
+  scope_dashboard_hint: "Saved in the card settings. The kitchen tablet can show other columns than your phone.",
+  scope_lists_hint: "Which lists and people show here.",
+  scope_household: "Whole household",
+  scope_household_hint: "Same settings as Settings → Household Kanban. Applies to every dashboard.",
+  eod_soon: "End of day and notifications can be set here soon. Until then use Settings → Devices & services → Household Kanban → Configure.",
+  columns: "Columns",
+  col_hint_todo: "Always · everything that fits no other column", col_hint_later: "Due after the end of the week",
+  col_hint_week: "Due by the end of the week", col_hint_today: "Due today or overdue", col_hint_done: "Recently completed",
+  done_keep: "Keep done on the board", done_keep_hint: "Older done tasks leave the board but stay in History (search, filter by list).",
+  view: "View", sort_order: "Sort in a column", sort_due: "Due date and time", sort_created: "Created",
+  sort_hint: "Nearest due date and time first, then higher priority, then older first.",
+  lists_here: "Lists on this dashboard", lists_hint: "The switch hides a list here only. Adding, renaming and colour apply to the whole household.",
+  show_list: "Show {name}", edit_list: "Edit list", add_list: "Add list", people_filter: "People in the filter",
+  err_card_ambiguous: "This card is twice on the dashboard with the same settings. Change it in the dashboard editor.",
+  err_card_missing: "The card was not found in the dashboard. Reload the page and try again.",
+  err_not_editable: "This dashboard can't be edited from here (YAML or auto-generated). Change the card in its YAML.",
+  err_settings: "Could not save the settings.",
 };
 const cs: typeof en = {
   title: "Úkoly",
@@ -51,8 +69,26 @@ const cs: typeof en = {
   hist_empty: "Nic nenalezeno", hist_more: "Načíst další", hist_last_week: "Minulý týden", reopen: "Znovu otevřít",
   err_history: "Historii se nepodařilo načíst.", err_reopen: "Úkol se nepodařilo znovu otevřít.",
   lists: "Seznamy", move_to: "Přesunout do…", older_history: "Starší v historii ({n})",
-  ed_columns: "Sloupce", ed_done_days: "Hotové nechat na boardu (dny)", ed_week_end: "Týden končí",
-  ed_auto: "Automaticky (dle jazyka)", ed_saturday: "V sobotu", ed_sunday: "V neděli",
+  ed_columns: "Sloupce", ed_done_days: "Hotové nechat na boardu (dny)",
+  settings: "Nastavení", tab_board: "Board", tab_eod: "Konec dne", tab_lists: "Seznamy a lidé",
+  scope_dashboard: "Jen tento dashboard",
+  scope_dashboard_hint: "Uloží se do nastavení karty. Tablet v kuchyni může mít jiné sloupce než mobil.",
+  scope_lists_hint: "Které seznamy a lidé se tu zobrazí.",
+  scope_household: "Celá domácnost",
+  scope_household_hint: "Stejné nastavení jako v Nastavení → Household Kanban. Platí pro všechny dashboardy.",
+  eod_soon: "Konec dne a notifikace tu půjde brzy nastavit. Zatím je najdeš v Nastavení → Zařízení a služby → Household Kanban → Konfigurovat.",
+  columns: "Sloupce",
+  col_hint_todo: "Vždy · vše, co nepatří do jiného sloupce", col_hint_later: "Termín po konci týdne",
+  col_hint_week: "Termín do konce týdne", col_hint_today: "Termín dnes nebo po termínu", col_hint_done: "Nedávno dokončené",
+  done_keep: "Hotové nechat na boardu", done_keep_hint: "Starší hotové zmizí z boardu, ale zůstanou v Historii (hledání, filtr podle rodiče).",
+  view: "Zobrazení", sort_order: "Řazení ve sloupci", sort_due: "Termín a čas", sort_created: "Datum založení",
+  sort_hint: "Nahoře úkoly s nejbližším termínem a časem, při shodě vyšší priorita, nakonec starší dřív.",
+  lists_here: "Seznamy na tomto dashboardu", lists_hint: "Vypínač skryje seznam jen tady. Přidání, přejmenování a barva platí pro celou domácnost.",
+  show_list: "Zobrazit {name}", edit_list: "Upravit seznam", add_list: "Přidat seznam", people_filter: "Lidé ve filtru",
+  err_card_ambiguous: "Tahle karta je na dashboardu dvakrát se stejným nastavením. Změň ji v editoru dashboardu.",
+  err_card_missing: "Karta se v dashboardu nenašla. Obnov stránku a zkus to znovu.",
+  err_not_editable: "Tenhle dashboard odsud upravit nejde (YAML nebo automatický). Změň kartu v jejím YAML.",
+  err_settings: "Nastavení se nepodařilo uložit.",
 };
 
 export type Key = keyof typeof en;
@@ -70,17 +106,19 @@ const plural: Record<string, Record<string, Forms>> = {
     sum_today: { other: "{n} for today" },
     sum_moved: { other: "{n} moved from yesterday" },
     sum_overdue: { other: "{n} overdue" },
+    days: { one: "{n} day", other: "{n} days" },
   },
   cs: {
     sum_open: { one: "{n} otevřený", few: "{n} otevřené", other: "{n} otevřených" },
     sum_today: { other: "{n} na dnes" },
     sum_moved: { one: "{n} přesunutý ze včerejška", few: "{n} přesunuté ze včerejška", other: "{n} přesunutých ze včerejška" },
     sum_overdue: { other: "{n} po termínu" },
+    days: { one: "{n} den", few: "{n} dny", other: "{n} dní" },
   },
 };
 
 /** Count-dependent strings, picked with Intl.PluralRules. */
-export function tn(lang: string | undefined, base: "sum_open" | "sum_today" | "sum_moved" | "sum_overdue", n: number): string {
+export function tn(lang: string | undefined, base: "sum_open" | "sum_today" | "sum_moved" | "sum_overdue" | "days", n: number): string {
   const code = (lang ?? "en").split("-")[0];
   const l = code in plural ? code : "en";
   const forms = plural[l][base];

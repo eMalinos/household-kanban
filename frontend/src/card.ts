@@ -1,12 +1,13 @@
 import { LitElement, html, nothing, type PropertyValues } from "lit";
 import Sortable from "sortablejs";
-import { createItem, deleteItem, fetchHistory, setStatus, subscribeBoard, updateItem, type Hass } from "./api";
+import { createItem, deleteItem, fetchDashboard, fetchHistory, saveDashboard, setStatus, subscribeBoard, updateItem, type Hass } from "./api";
 import { addDays, firstWeekday, parseDue, startOfDay, weekRange, ymd } from "./logic/dates";
 import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
 import { retryDelay } from "./logic/retry";
 import { keepDefined } from "./register";
-import { normalizeConfig, type CardConfig } from "./config";
+import { mergeConfig, normalizeConfig, type CardConfig } from "./config";
+import { dashboardUrlPath, replaceCard } from "./logic/lovelace";
 import "./editor";
 import { t, tn, type Key } from "./i18n";
 import { styles } from "./styles";
@@ -19,12 +20,14 @@ import { compareItems } from "./logic/sort";
 import { stackItems } from "./logic/stack";
 import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
+import { renderSettings, type SettingsState } from "./ui/settings-dialog";
 import type { Env } from "./ui/item-card";
 
 
 const HISTORY_PAGE = 50;
 const NARROW_PX = 600;
 const LONG_PRESS_MS = 500;
+const GEAR = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
 class HouseholdKanbanCard extends LitElement {
   static properties = {
@@ -42,6 +45,7 @@ class HouseholdKanbanCard extends LitElement {
     _narrow: { state: true },
     _sheet: { state: true },
     _menu: { state: true },
+    _settings: { state: true },
   };
   static styles = styles;
 
@@ -59,6 +63,8 @@ class HouseholdKanbanCard extends LitElement {
   _narrow = false;
   _sheet?: { kind: "col" | "parent"; id: string };
   _menu?: string; // uid of the item whose "Move to…" menu is open
+  _settings?: SettingsState;
+  private _raw: Record<string, unknown> = {}; // exactly what setConfig got: the card's entry in the dashboard config
   private _ro?: ResizeObserver;
   private _sheetReturn?: string;
   private _sheetShown = false;
@@ -91,6 +97,7 @@ class HouseholdKanbanCard extends LitElement {
 
   setConfig(raw: CardConfig): void {
     const config = normalizeConfig(raw);
+    this._raw = raw as unknown as Record<string, unknown>;
     this._config = config;
     this._filter = { ...this._filter, group: config.group ?? "date" };
   }
@@ -199,6 +206,38 @@ class HouseholdKanbanCard extends LitElement {
     this._dlgError = undefined;
     this._returnTo = returnTo;
     this._draft = draft;
+  }
+
+  private _openSettings(): void {
+    if (this._draft || this._hist || this._settings || !this._config) return;
+    this._seq++;
+    this._returnTo = () => this.renderRoot.querySelector<HTMLElement>("header .gear-btn");
+    this._settings = { tab: "board", draft: { ...this._config }, saving: false, narrow: this._narrow };
+  }
+
+  /** Write the draft into this card's entry of the dashboard config; HA reloads the dashboard after the save. */
+  private async _saveSettings(): Promise<void> {
+    const hass = this.hass, st = this._settings, seq = this._seq;
+    if (!hass || !st || st.saving) return;
+    const set = (patch: Partial<SettingsState>) => { if (seq === this._seq && this._settings) this._settings = { ...this._settings, ...patch }; };
+    set({ saving: true, error: undefined });
+    const urlPath = dashboardUrlPath(window.location.pathname);
+    try {
+      const dash = await fetchDashboard(hass, urlPath);
+      if (dash && typeof dash === "object" && "strategy" in dash) { set({ saving: false, error: "err_not_editable" }); return; }
+      const next = mergeConfig(this._raw, normalizeConfig(st.draft));
+      const r = replaceCard(dash, this._raw, next);
+      if (r.matches !== 1) { set({ saving: false, error: r.matches ? "err_card_ambiguous" : "err_card_missing" }); return; }
+      await saveDashboard(hass, urlPath, r.config);
+      if (seq !== this._seq) return;
+      this.setConfig(next as unknown as CardConfig);
+      this._settings = undefined;
+    } catch (err) {
+      console.warn("household_kanban: dashboard save failed", err);
+      const e = err as { code?: string; message?: string } | undefined;
+      const locked = e?.code === "config_not_editable" || e?.code === "config_not_found" || /yaml/i.test(e?.message ?? "");
+      set({ saving: false, error: locked ? "err_not_editable" : "err_settings" });
+    }
   }
 
   private _openHistory(returnTo: string): void {
@@ -418,7 +457,7 @@ class HouseholdKanbanCard extends LitElement {
     if (board.end_of_day_mode === "overdue") enabled.add("overdue");
     const ctx: Ctx = {
       now, enabled, mode: board.end_of_day_mode, doneDays: cfg.done_days ?? 7,
-      week: weekRange(now, firstWeekday(cfg.week_end, hass.locale)),
+      week: weekRange(now, firstWeekday(hass.locale)),
     };
     this._ctx = ctx;
     const env: Env = {
@@ -440,6 +479,8 @@ class HouseholdKanbanCard extends LitElement {
       ${this._notice ? html`<div class="notice" role="alert">${t(lang, this._notice)}</div>` : nothing}
       <header>
         <div class="titles"><h1>${t(lang, "title")}</h1><div class="summary">${this._summary(scoped, ctx, lang)}</div></div>
+        ${hass.user?.is_admin ? html`<button class="round-btn gear-btn" type="button" aria-label=${t(lang, "settings")} title=${t(lang, "settings")}
+          @click=${() => this._openSettings()}>${GEAR}</button>` : nothing}
         <button class="pill-btn hist-btn" type="button" @click=${() => this._openHistory("header .hist-btn")}>${t(lang, "history")}</button>
         <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, "header .new")}>+ ${t(lang, "new_note")}</button>
       </header>
@@ -458,12 +499,19 @@ class HouseholdKanbanCard extends LitElement {
         onHistory: () => this._openHistory(".col[data-col=\"done\"] .note-btn"),
       }, env)}`}
       ${this._hist ? renderHistory(this._hist, {
-        hass, lang, now, parents, firstDay: firstWeekday(cfg.week_end, hass.locale),
+        hass, lang, now, parents, firstDay: firstWeekday(hass.locale),
         onSearch: (search) => this._histFilter({ search }, 300),
         onParent: (parent) => this._histFilter({ parent }, 0),
         onReopen: (item) => this._reopen(item.uid),
         onMore: () => void this._loadHistory(false),
         onClose: () => this._closeHistory(),
+      }) : nothing}
+      ${this._settings ? renderSettings({ ...this._settings, narrow: this._narrow }, {
+        hass, lang, parents: board.parents, people: Object.keys(hass.states).filter((id) => id.startsWith("person.")),
+        onTab: (tab) => { if (this._settings) this._settings = { ...this._settings, tab }; },
+        onChange: (patch) => { if (this._settings) this._settings = { ...this._settings, draft: { ...this._settings.draft, ...patch }, error: undefined }; },
+        onSave: () => void this._saveSettings(),
+        onClose: () => { this._seq++; this._settings = undefined; },
       }) : nothing}
       ${this._draft ? renderDialog(this._draft, {
         hass, lang, now, parents, people, busy: this._busy, error: this._dlgError,

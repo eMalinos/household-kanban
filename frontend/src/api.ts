@@ -5,6 +5,7 @@ export interface Hass {
   states: Record<string, { state: string; attributes: Record<string, unknown> }>;
   locale?: { language?: string; first_weekday?: string };
   language?: string;
+  user?: { is_admin: boolean };
   connection: {
     subscribeMessage<T>(cb: (event: T) => void, msg: Record<string, unknown>): Promise<() => void>;
     sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
@@ -43,4 +44,13 @@ export function updateItem(hass: Hass, uid: string, fields: ItemFields): Promise
 
 export function deleteItem(hass: Hass, uid: string): Promise<unknown> {
   return hass.callService(DOMAIN, "delete_item", { uid });
+}
+
+/** Lovelace dashboard config; `urlPath` null = the default dashboard. */
+export function fetchDashboard(hass: Hass, urlPath: string | null): Promise<unknown> {
+  return hass.connection.sendMessagePromise({ type: "lovelace/config", url_path: urlPath });
+}
+
+export function saveDashboard(hass: Hass, urlPath: string | null, config: unknown): Promise<unknown> {
+  return hass.connection.sendMessagePromise({ type: "lovelace/config/save", url_path: urlPath, config });
 }

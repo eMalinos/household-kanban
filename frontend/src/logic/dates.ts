@@ -62,10 +62,8 @@ export function weekRange(today: Date, firstWeekday: number): { start: Date; end
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-/** week_end config wins, then hass.locale.first_weekday, "language" via Intl weekInfo, else Monday. */
-export function firstWeekday(weekEnd: string | undefined, locale: { first_weekday?: string; language?: string } | undefined): number {
-  if (weekEnd === "saturday") return 0;
-  if (weekEnd === "sunday") return 1;
+/** hass.locale.first_weekday (the user's profile), "language" via Intl weekInfo, else Monday. */
+export function firstWeekday(locale: { first_weekday?: string; language?: string } | undefined): number {
   const fw = locale?.first_weekday;
   const named = DAYS.indexOf(fw ?? "");
   if (named >= 0) return named;
