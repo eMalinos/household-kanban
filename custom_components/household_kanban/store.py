@@ -11,9 +11,11 @@ from uuid import uuid4
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from .const import (
     DEFAULT_PARENT,
@@ -143,10 +145,59 @@ class KanbanStore:
             except Exception:
                 _LOGGER.exception("Error in store listener")
 
+    @property
+    def listener_count(self) -> int:
+        return len(self._listeners)
+
     @callback
     def add_listener(self, cb: Callable[[], None]) -> Callable[[], None]:
         self._listeners.append(cb)
         return lambda: self._listeners.remove(cb)
+
+    async def async_add_parent(
+        self, name: str, icon: str, color: str, collapse: bool
+    ) -> ParentData:
+        """Add a parent; id = slugified name (+ _2, _3 ... if taken), fixed forever."""
+        base = slugify(name)
+        taken = {p.id for p in self.parents}
+        parent_id, n = base, 1
+        while parent_id in taken:
+            n += 1
+            parent_id = f"{base}_{n}"
+        parent = ParentData(parent_id, name, icon, color, collapse)
+        self.parents.append(parent)
+        await self._async_changed()
+        return parent
+
+    async def async_update_parent(self, parent_id: str, **fields) -> ParentData:
+        """Change name/icon/color/collapse; the id and entity_id stay."""
+        index = next(i for i, p in enumerate(self.parents) if p.id == parent_id)
+        parent = self.parents[index] = replace(self.parents[index], **fields)
+        await self._async_changed()
+        return parent
+
+    async def async_remove_parent(self, parent_id: str, target_id: str) -> None:
+        """Remove a parent; its items (open, completed, archived) go to the target."""
+        ids = {p.id for p in self.parents}
+        if (
+            parent_id == DEFAULT_PARENT
+            or parent_id == target_id
+            or (not {parent_id, target_id} <= ids)
+        ):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_parent",
+                translation_placeholders={"value": parent_id},
+            )
+        for items in (self.items, self.archive):
+            for uid, item in items.items():
+                if item.parent == parent_id:
+                    items[uid] = replace(item, parent=target_id)
+        self.parents = [p for p in self.parents if p.id != parent_id]
+        registry = er.async_get(self.hass)
+        if entity_id := registry.async_get_entity_id("todo", DOMAIN, parent_id):
+            registry.async_remove(entity_id)
+        await self._async_changed()
 
     async def async_add_item(self, parent: str, summary: str, **fields) -> ItemData:
         item = ItemData(uid=uuid4().hex, parent=parent, summary=summary, **fields)

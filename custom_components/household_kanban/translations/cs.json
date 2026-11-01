@@ -16,7 +16,8 @@
         "title": "Household Kanban",
         "menu_options": {
           "end_of_day": "Konec dne",
-          "notifications": "Oznámení"
+          "notifications": "Oznámení",
+          "parents": "Nadřazené seznamy"
         }
       },
       "end_of_day": {
@@ -44,7 +45,53 @@
           "notify_assignee": "Úkoly osoby bez telefonu jdou na vybrané služby.",
           "notify_services": "Telefony, které dostanou nepřiřazené úkoly (a úkoly lidí bez telefonu)."
         }
+      },
+      "parents": {
+        "title": "Nadřazené seznamy",
+        "menu_options": {
+          "add_parent": "Přidat seznam",
+          "edit_parent": "Upravit seznam",
+          "remove_parent": "Odebrat seznam"
+        }
+      },
+      "add_parent": {
+        "title": "Přidat seznam",
+        "description": "Seznam je to-do list zobrazený na nástěnce jako skupina sloupců.",
+        "data": {
+          "name": "Název",
+          "icon": "Ikona",
+          "color": "Barva",
+          "collapse": "Na nástěnce sbalený"
+        }
+      },
+      "edit_parent": {
+        "title": "Upravit seznam",
+        "data": {
+          "parent": "Seznam"
+        }
+      },
+      "edit_parent_details": {
+        "title": "Upravit seznam",
+        "description": "ID {parent} a entita zůstávají stejné.",
+        "data": {
+          "name": "Název",
+          "icon": "Ikona",
+          "color": "Barva",
+          "collapse": "Na nástěnce sbalený"
+        }
+      },
+      "remove_parent": {
+        "title": "Odebrat seznam",
+        "description": "Jeho úkoly a historie se přesunou do cílového seznamu. Domácnost odebrat nejde.",
+        "data": {
+          "parent": "Seznam k odebrání",
+          "target": "Přesunout úkoly do"
+        }
       }
+    },
+    "error": {
+      "name_required": "Zadejte název.",
+      "same_parent": "Vyberte jiný seznam, kam úkoly přesunout."
     }
   },
   "selector": {
@@ -54,6 +101,22 @@
         "overdue": "Označit jako po termínu",
         "move": "Posunout na další den",
         "raise": "Zvýšit prioritu"
+      }
+    },
+    "parent_color": {
+      "options": {
+        "red": "Červená",
+        "orange": "Oranžová",
+        "yellow": "Žlutá",
+        "green": "Zelená",
+        "teal": "Modrozelená",
+        "cyan": "Azurová",
+        "blue": "Modrá",
+        "indigo": "Indigová",
+        "purple": "Fialová",
+        "pink": "Růžová",
+        "brown": "Hnědá",
+        "grey": "Šedá"
       }
     }
   },

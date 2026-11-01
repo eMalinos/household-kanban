@@ -31,3 +31,17 @@ ACTION_PREFIX = "HOUSEHOLD_KANBAN"
 EVENT_DAY_CLOSED = f"{DOMAIN}_day_closed"
 RUNS_KEPT = 14
 SIGNAL_BOARD_CHANGED = f"{DOMAIN}_board_changed"
+PARENT_COLORS = [
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "teal",
+    "cyan",
+    "blue",
+    "indigo",
+    "purple",
+    "pink",
+    "brown",
+    "grey",
+]

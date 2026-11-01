@@ -25,7 +25,18 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     store = entry.runtime_data
-    async_add_entities(KanbanTodoList(store, parent) for parent in store.parents)
+    known: set[str] = set()
+
+    @callback
+    def add_new_parents() -> None:
+        current = {p.id for p in store.parents}
+        known.intersection_update(current)  # a removed id may be added again
+        new = [p for p in store.parents if p.id not in known]
+        known.update(p.id for p in new)
+        async_add_entities(KanbanTodoList(store, p) for p in new)
+
+    add_new_parents()
+    entry.async_on_unload(store.add_listener(add_new_parents))
 
 
 def _due_to_str(due: date | datetime | None) -> str | None:
@@ -74,7 +85,9 @@ class KanbanTodoList(TodoListEntity):
 
     @callback
     def _refresh(self) -> None:
-        parent = next(p for p in self._store.parents if p.id == self._parent_id)
+        parent = next((p for p in self._store.parents if p.id == self._parent_id), None)
+        if parent is None:  # removed; the registry is dropping this entity
+            return
         self._attr_name = parent.name
         self._attr_icon = parent.icon
         mine = [i for i in self._store.items.values() if i.parent == self._parent_id]
@@ -83,6 +96,8 @@ class KanbanTodoList(TodoListEntity):
 
     @callback
     def _on_store_change(self) -> None:
+        if not any(p.id == self._parent_id for p in self._store.parents):
+            return
         self._refresh()
         self.async_write_ha_state()
 

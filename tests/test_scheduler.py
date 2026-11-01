@@ -163,7 +163,7 @@ async def test_options_end_of_day(hass, hass_storage, freezer):
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["end_of_day", "notifications"]
+    assert result["menu_options"] == ["end_of_day", "notifications", "parents"]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "end_of_day"}
     )

@@ -14,9 +14,12 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    IconSelector,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
     TimeSelector,
 )
 
@@ -30,9 +33,14 @@ from .const import (
     DEFAULT_CLOSE_TIME,
     DEFAULT_END_OF_DAY_MODE,
     DEFAULT_NOTIFY_TIME,
+    DEFAULT_PARENT,
+    DEFAULT_PARENT_COLOR,
+    DEFAULT_PARENT_ICON,
     DOMAIN,
     END_OF_DAY_MODES,
+    PARENT_COLORS,
 )
+from .store import ParentData
 
 
 class KanbanConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -56,11 +64,130 @@ class KanbanConfigFlow(ConfigFlow, domain=DOMAIN):
 class KanbanOptionsFlow(OptionsFlow):
     """Options as a menu; each step saves its own keys and keeps the others."""
 
+    _parent_id: str
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="init", menu_options=["end_of_day", "notifications"]
+            step_id="init", menu_options=["end_of_day", "notifications", "parents"]
+        )
+
+    async def async_step_parents(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Parents menu; changes apply at once, the dialog is closed to finish."""
+        return self.async_show_menu(
+            step_id="parents",
+            menu_options=["add_parent", "edit_parent", "remove_parent"],
+        )
+
+    @staticmethod
+    def _parent_schema(
+        name: str = "",
+        icon: str = DEFAULT_PARENT_ICON,
+        color: str = DEFAULT_PARENT_COLOR,
+        collapse: bool = False,
+    ) -> vol.Schema:
+        return vol.Schema(
+            {
+                vol.Required("name", default=name): TextSelector(),
+                vol.Required("icon", default=icon): IconSelector(),
+                vol.Required("color", default=color): SelectSelector(
+                    SelectSelectorConfig(
+                        options=PARENT_COLORS,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        translation_key="parent_color",
+                    )
+                ),
+                vol.Required("collapse", default=collapse): BooleanSelector(),
+            }
+        )
+
+    @staticmethod
+    def _clean(user_input: dict[str, Any]) -> dict[str, Any]:
+        return user_input | {"name": user_input["name"].strip()}
+
+    async def async_step_add_parent(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors = {}
+        if user_input is not None:
+            user_input = self._clean(user_input)
+            if user_input["name"]:
+                await self.config_entry.runtime_data.async_add_parent(**user_input)
+                return await self.async_step_parents()
+            errors["name"] = "name_required"
+        return self.async_show_form(
+            step_id="add_parent", data_schema=self._parent_schema(), errors=errors
+        )
+
+    async def async_step_edit_parent(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        store = self.config_entry.runtime_data
+        if user_input is not None:
+            self._parent_id = user_input["parent"]
+            return await self.async_step_edit_parent_details()
+        schema = vol.Schema(
+            {vol.Required("parent"): self._parent_selector(store.parents)}
+        )
+        return self.async_show_form(step_id="edit_parent", data_schema=schema)
+
+    async def async_step_edit_parent_details(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        store = self.config_entry.runtime_data
+        parent = next(p for p in store.parents if p.id == self._parent_id)
+        errors = {}
+        if user_input is not None:
+            user_input = self._clean(user_input)
+            if user_input["name"]:
+                await store.async_update_parent(parent.id, **user_input)
+                return await self.async_step_parents()
+            errors["name"] = "name_required"
+        return self.async_show_form(
+            step_id="edit_parent_details",
+            data_schema=self._parent_schema(
+                parent.name, parent.icon, parent.color, parent.collapse
+            ),
+            errors=errors,
+            description_placeholders={"parent": parent.id},
+        )
+
+    async def async_step_remove_parent(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        store = self.config_entry.runtime_data
+        removable = [p for p in store.parents if p.id != DEFAULT_PARENT]
+        if not removable:
+            return await self.async_step_parents()
+        if user_input is not None:
+            if user_input["parent"] != user_input["target"]:
+                await store.async_remove_parent(
+                    user_input["parent"], user_input["target"]
+                )
+                return await self.async_step_parents()
+        schema = vol.Schema(
+            {
+                vol.Required("parent"): self._parent_selector(removable),
+                vol.Required("target", default=DEFAULT_PARENT): self._parent_selector(
+                    store.parents
+                ),
+            }
+        )
+        errors = {"target": "same_parent"} if user_input is not None else {}
+        return self.async_show_form(
+            step_id="remove_parent", data_schema=schema, errors=errors
+        )
+
+    @staticmethod
+    def _parent_selector(parents: list[ParentData]) -> SelectSelector:
+        return SelectSelector(
+            SelectSelectorConfig(
+                options=[SelectOptionDict(value=p.id, label=p.name) for p in parents],
+                mode=SelectSelectorMode.DROPDOWN,
+            )
         )
 
     async def async_step_end_of_day(

@@ -16,7 +16,8 @@
         "title": "Household Kanban",
         "menu_options": {
           "end_of_day": "End of day",
-          "notifications": "Notifications"
+          "notifications": "Notifications",
+          "parents": "Parents"
         }
       },
       "end_of_day": {
@@ -44,7 +45,53 @@
           "notify_assignee": "Items of a person without a phone go to the selected services.",
           "notify_services": "Phones that get unassigned items (and items of people without a phone)."
         }
+      },
+      "parents": {
+        "title": "Parents",
+        "menu_options": {
+          "add_parent": "Add a parent",
+          "edit_parent": "Edit a parent",
+          "remove_parent": "Remove a parent"
+        }
+      },
+      "add_parent": {
+        "title": "Add a parent",
+        "description": "A parent is a to-do list shown as a column group on the board.",
+        "data": {
+          "name": "Name",
+          "icon": "Icon",
+          "color": "Colour",
+          "collapse": "Collapsed on the board"
+        }
+      },
+      "edit_parent": {
+        "title": "Edit a parent",
+        "data": {
+          "parent": "Parent"
+        }
+      },
+      "edit_parent_details": {
+        "title": "Edit a parent",
+        "description": "The ID {parent} and the entity stay the same.",
+        "data": {
+          "name": "Name",
+          "icon": "Icon",
+          "color": "Colour",
+          "collapse": "Collapsed on the board"
+        }
+      },
+      "remove_parent": {
+        "title": "Remove a parent",
+        "description": "Its items and history move to the target parent. Household cannot be removed.",
+        "data": {
+          "parent": "Parent to remove",
+          "target": "Move items to"
+        }
       }
+    },
+    "error": {
+      "name_required": "Enter a name.",
+      "same_parent": "Choose a different parent to move the items to."
     }
   },
   "selector": {
@@ -54,6 +101,22 @@
         "overdue": "Mark overdue",
         "move": "Move to the next day",
         "raise": "Raise priority"
+      }
+    },
+    "parent_color": {
+      "options": {
+        "red": "Red",
+        "orange": "Orange",
+        "yellow": "Yellow",
+        "green": "Green",
+        "teal": "Teal",
+        "cyan": "Cyan",
+        "blue": "Blue",
+        "indigo": "Indigo",
+        "purple": "Purple",
+        "pink": "Pink",
+        "brown": "Brown",
+        "grey": "Grey"
       }
     }
   },

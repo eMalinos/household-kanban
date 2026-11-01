@@ -49,7 +49,7 @@ async def test_subscribe_pushes_on_change(hass, entry, hass_ws_client):
 
     await client.send_json_auto_id({"type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"]
-    assert len(store._listeners) == 1  # only the entity's
+    assert store.listener_count == 2  # the todo platform and the entity
 
 
 async def test_history_search_and_paging(hass, entry, hass_ws_client):
