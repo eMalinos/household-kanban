@@ -22,7 +22,7 @@ It must feel good to use: the Bento theme look (Slate preset first), fast to add
 - Drag & drop between columns, mouse and touch (HA app):
   - → Today: due = today · → This week: due = end of the week the column covers (on the last day of the week: end of next week) · → Later: due = first day after the "This week" range · → To-do: due cleared · → Done: completed (dragging out of Done reopens) · → Overdue: not a drop target.
   - In priority grouping a drop changes priority.
-- Week end: default from the HA user profile's first weekday; overridable in card settings (e.g. Saturday).
+- Week start: always from the HA user profile's first weekday; no card setting. *(user decision, v1.1; v1 had a card override)*
 - Responsive card: wide → kanban board; narrow (phone, small dashboard column) → tiles (Today wide with overdue badge and 3-item preview, This week + To-do, Done) plus a list of parents; tapping a tile or parent slides up a bottom sheet with the notes. Long-press in the sheet offers "Move to…".
 - Detail dialog on click: title, note, parent chips (+ new parent), priority segmented control, due quick picks (Today / Tomorrow / Weekend / No date) + date input + optional time, assignee chips, mark done, delete, save. "New note" opens the same dialog empty.
 - Native integration: items live in HA to-do entities so the HA app's to-do views, Assist ("add milk to shopping") and iOS Reminders sync keep working.
@@ -63,7 +63,7 @@ It must feel good to use: the Bento theme look (Slate preset first), fast to add
 - **Completed items:** stay in their `todo.*` entity for 30 days after completion, then the integration moves them to its archive (Store). History in the card queries entities + archive; reopening an archived item puts it back into its parent entity. The HA app and Reminders therefore show only the last 30 days of completions. *(user decision)*
 - **Morning notification shape:** one summary notification per recipient. Buttons: "Open tasks" (opens the dashboard) and one bulk action depending on the end-of-day mode ("Move all to today" for keep/overdue modes, "All done" for move modes). When the summary has a single item, the action applies to that item. Button payloads identify the day-close run, so the integration knows which items they mean. *(user decision)*
 - **This week on the last day of the week:** the column covers next week (today's items are in Today), so a drop into This week (due = end of next week) stays in This week; Later starts after that range. *(builder's call, from review)*
-- **Card settings** (card editor) hold only presentation: enabled columns, Done retention days, default grouping, which parents and people to show, week end override.
+- **Card settings** (card editor) hold only presentation: enabled columns, Done retention days, default grouping, which parents and people to show.
 
 ## Left to the builder
 
@@ -78,7 +78,7 @@ It must feel good to use: the Bento theme look (Slate preset first), fast to add
 Visual design: canvas page v6 (`Settings6`, `Main6*`, `Mobile6`). Plan: `docs/superpowers/plans/2026-11-01-settings-dialog.md`.
 
 - A gear button on the card (admins only) opens a settings dialog with three tabs; a banner under the tabs says where the tab applies.
-- **Board** (this dashboard only): enabled columns, Done retention, grouping, week end. Saved into this card's config in the dashboard, so a kitchen tablet and a phone can differ. *(user decision)*
+- **Board** (this dashboard only): enabled columns, Done retention, grouping. The week start is not a setting here; it comes from the HA user profile. *(user decision)* Saved into this card's config in the dashboard, so a kitchen tablet and a phone can differ. *(user decision)*
 - **Lists & people**: which parents and people this dashboard shows (this dashboard only); adding, renaming, recolouring and removing a list applies to the whole household.
 - **End of day & notifications** (whole household): the same values as the integration options; both places stay editable.
 - Card editor and options flow keep working; the dialog is a shortcut, not a replacement. *(builder's call)*
