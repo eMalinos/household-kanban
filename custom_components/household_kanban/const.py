@@ -16,3 +16,6 @@ DEFAULT_PRIORITY = PRIORITY_MEDIUM
 
 STATUS_NEEDS_ACTION = "needs_action"
 STATUS_COMPLETED = "completed"
+
+CONF_END_OF_DAY_MODE = "end_of_day_mode"
+DEFAULT_END_OF_DAY_MODE = "raise"

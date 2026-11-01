@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -17,11 +20,14 @@ from .const import (
     DEFAULT_PARENT_ICON,
     DEFAULT_PARENT_NAMES,
     DEFAULT_PRIORITY,
+    DOMAIN,
     STATUS_COMPLETED,
     STATUS_NEEDS_ACTION,
     STORE_KEY,
     STORE_VERSION,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -103,7 +109,10 @@ class KanbanStore:
     async def _async_changed(self) -> None:
         await self._async_save()
         for listener in list(self._listeners):
-            listener()
+            try:
+                listener()
+            except Exception:
+                _LOGGER.exception("Error in store listener")
 
     @callback
     def add_listener(self, cb: Callable[[], None]) -> Callable[[], None]:
@@ -112,12 +121,23 @@ class KanbanStore:
 
     async def async_add_item(self, parent: str, summary: str, **fields) -> ItemData:
         item = ItemData(uid=uuid4().hex, parent=parent, summary=summary, **fields)
+        item.completed_at = _completed_at(item, item.status)
         self.items[item.uid] = item
         await self._async_changed()
         return item
 
     async def async_update_item(self, uid: str, **fields) -> ItemData:
-        item = self.items[uid] = replace(self.items[uid], **fields)
+        """Update fields.
+
+        A status change sets or clears completed_at; a changed due resets
+        moved/raised unless the caller sets them (end of day does).
+        """
+        current = self.items[uid]
+        if "due" in fields and fields["due"] != current.due:
+            fields = {"moved": 0, "raised": False} | fields
+        if "status" in fields:
+            fields["completed_at"] = _completed_at(current, fields["status"])
+        item = self.items[uid] = replace(current, **fields)
         await self._async_changed()
         return item
 
@@ -126,7 +146,28 @@ class KanbanStore:
         await self._async_changed()
 
     async def async_set_status(self, uid: str, status: str) -> None:
-        completed_at = None
-        if status == STATUS_COMPLETED:
-            completed_at = self.items[uid].completed_at or dt_util.utcnow().isoformat()
-        await self.async_update_item(uid, status=status, completed_at=completed_at)
+        """Set status; reopening an archived item restores it into its parent."""
+        if uid in self.archive and status != STATUS_COMPLETED:
+            item = self.archive.pop(uid)
+            if not any(p.id == item.parent for p in self.parents):
+                item.parent = DEFAULT_PARENT
+            self.items[uid] = item
+        if uid in self.items:
+            await self.async_update_item(uid, status=status)
+
+
+def loaded_entry(hass: HomeAssistant) -> ConfigEntry:
+    """Return the loaded config entry (its runtime_data is the store)."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.state is ConfigEntryState.LOADED:
+            return entry
+    raise ServiceValidationError(
+        translation_domain=DOMAIN, translation_key="not_loaded"
+    )
+
+
+def _completed_at(item: ItemData, status: str) -> str | None:
+    """The single completed_at rule: keep it while completed, else clear it."""
+    if status != STATUS_COMPLETED:
+        return None
+    return item.completed_at or dt_util.utcnow().isoformat()

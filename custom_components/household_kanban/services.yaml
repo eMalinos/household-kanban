@@ -1,0 +1,81 @@
+create_item:
+  fields:
+    parent:
+      example: household
+      selector:
+        text:
+    summary:
+      required: true
+      example: Take out the bins
+      selector:
+        text:
+    description:
+      selector:
+        text:
+          multiline: true
+    due:
+      example: "2026-11-02T18:00:00+01:00"
+      selector:
+        text:
+    priority:
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 3
+          mode: box
+    assignee:
+      selector:
+        entity:
+          domain: person
+
+update_item:
+  fields:
+    uid:
+      required: true
+      selector:
+        text:
+    summary:
+      selector:
+        text:
+    description:
+      selector:
+        text:
+          multiline: true
+    due:
+      selector:
+        text:
+    priority:
+      selector:
+        number:
+          min: 1
+          max: 3
+          mode: box
+    assignee:
+      selector:
+        entity:
+          domain: person
+    parent:
+      selector:
+        text:
+
+set_status:
+  fields:
+    uid:
+      required: true
+      selector:
+        text:
+    status:
+      required: true
+      selector:
+        select:
+          options:
+            - needs_action
+            - completed
+
+delete_item:
+  fields:
+    uid:
+      required: true
+      selector:
+        text:

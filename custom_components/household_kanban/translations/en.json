@@ -9,5 +9,112 @@
     "abort": {
       "single_instance_allowed": "Already configured. Only a single configuration possible."
     }
+  },
+  "services": {
+    "create_item": {
+      "name": "Create item",
+      "description": "Adds an item with metadata to a parent.",
+      "fields": {
+        "parent": {
+          "name": "Parent",
+          "description": "Parent (to-do list) ID, e.g. household."
+        },
+        "summary": {
+          "name": "Summary",
+          "description": "What needs to be done."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Optional details."
+        },
+        "due": {
+          "name": "Due",
+          "description": "Date (2026-11-02) or date and time (2026-11-02T18:00, local time if no offset). Empty clears it."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "1 = High, 2 = Medium, 3 = Low."
+        },
+        "assignee": {
+          "name": "Assignee",
+          "description": "Person responsible for the item."
+        }
+      }
+    },
+    "update_item": {
+      "name": "Update item",
+      "description": "Changes an item; a changed due resets moved and raised.",
+      "fields": {
+        "uid": {
+          "name": "Item ID",
+          "description": "The item's UID."
+        },
+        "summary": {
+          "name": "Summary",
+          "description": "What needs to be done."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Optional details."
+        },
+        "due": {
+          "name": "Due",
+          "description": "Date (2026-11-02) or date and time (2026-11-02T18:00, local time if no offset). Empty clears it."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "1 = High, 2 = Medium, 3 = Low."
+        },
+        "assignee": {
+          "name": "Assignee",
+          "description": "Person responsible for the item."
+        },
+        "parent": {
+          "name": "Parent",
+          "description": "Parent (to-do list) ID, e.g. household."
+        }
+      }
+    },
+    "set_status": {
+      "name": "Set status",
+      "description": "Completes or reopens an item, including archived ones.",
+      "fields": {
+        "uid": {
+          "name": "Item ID",
+          "description": "The item's UID."
+        },
+        "status": {
+          "name": "Status",
+          "description": "needs_action or completed."
+        }
+      }
+    },
+    "delete_item": {
+      "name": "Delete item",
+      "description": "Removes an item.",
+      "fields": {
+        "uid": {
+          "name": "Item ID",
+          "description": "The item's UID."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Household Kanban is not loaded."
+    },
+    "unknown_item": {
+      "message": "Unknown item: {value}."
+    },
+    "unknown_parent": {
+      "message": "Unknown parent: {value}."
+    },
+    "unknown_person": {
+      "message": "Unknown person: {value}."
+    },
+    "invalid_due": {
+      "message": "Invalid due value: {value}. Use a date or an ISO date and time."
+    }
   }
 }

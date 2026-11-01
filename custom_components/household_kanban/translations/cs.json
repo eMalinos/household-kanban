@@ -9,5 +9,112 @@
     "abort": {
       "single_instance_allowed": "Již nastaveno. Je možná pouze jedna konfigurace."
     }
+  },
+  "services": {
+    "create_item": {
+      "name": "Vytvořit úkol",
+      "description": "Přidá úkol s metadaty do seznamu.",
+      "fields": {
+        "parent": {
+          "name": "Nadřazený seznam",
+          "description": "ID seznamu úkolů, např. household."
+        },
+        "summary": {
+          "name": "Název",
+          "description": "Co je potřeba udělat."
+        },
+        "description": {
+          "name": "Popis",
+          "description": "Volitelné podrobnosti."
+        },
+        "due": {
+          "name": "Termín",
+          "description": "Datum (2026-11-02) nebo datum a čas (2026-11-02T18:00, bez posunu v místním čase). Prázdné termín odstraní."
+        },
+        "priority": {
+          "name": "Priorita",
+          "description": "1 = Vysoká, 2 = Střední, 3 = Nízká."
+        },
+        "assignee": {
+          "name": "Řešitel",
+          "description": "Osoba odpovědná za úkol."
+        }
+      }
+    },
+    "update_item": {
+      "name": "Upravit úkol",
+      "description": "Změní úkol; změna termínu vynuluje posunutí a zvýšení priority.",
+      "fields": {
+        "uid": {
+          "name": "ID úkolu",
+          "description": "UID úkolu."
+        },
+        "summary": {
+          "name": "Název",
+          "description": "Co je potřeba udělat."
+        },
+        "description": {
+          "name": "Popis",
+          "description": "Volitelné podrobnosti."
+        },
+        "due": {
+          "name": "Termín",
+          "description": "Datum (2026-11-02) nebo datum a čas (2026-11-02T18:00, bez posunu v místním čase). Prázdné termín odstraní."
+        },
+        "priority": {
+          "name": "Priorita",
+          "description": "1 = Vysoká, 2 = Střední, 3 = Nízká."
+        },
+        "assignee": {
+          "name": "Řešitel",
+          "description": "Osoba odpovědná za úkol."
+        },
+        "parent": {
+          "name": "Nadřazený seznam",
+          "description": "ID seznamu úkolů, např. household."
+        }
+      }
+    },
+    "set_status": {
+      "name": "Nastavit stav",
+      "description": "Dokončí nebo znovu otevře úkol, i archivovaný.",
+      "fields": {
+        "uid": {
+          "name": "ID úkolu",
+          "description": "UID úkolu."
+        },
+        "status": {
+          "name": "Stav",
+          "description": "needs_action nebo completed."
+        }
+      }
+    },
+    "delete_item": {
+      "name": "Smazat úkol",
+      "description": "Odstraní úkol.",
+      "fields": {
+        "uid": {
+          "name": "ID úkolu",
+          "description": "UID úkolu."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Household Kanban není načten."
+    },
+    "unknown_item": {
+      "message": "Neznámý úkol: {value}."
+    },
+    "unknown_parent": {
+      "message": "Neznámý seznam: {value}."
+    },
+    "unknown_person": {
+      "message": "Neznámá osoba: {value}."
+    },
+    "invalid_due": {
+      "message": "Neplatný termín: {value}. Použijte datum nebo datum a čas ve formátu ISO."
+    }
   }
 }

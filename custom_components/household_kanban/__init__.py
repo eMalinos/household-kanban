@@ -5,12 +5,24 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
+from .const import DOMAIN
+from .services import async_setup_services
 from .store import KanbanStore
+from .websocket import async_setup_websocket
 
 PLATFORMS = [Platform.TODO]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 type KanbanConfigEntry = ConfigEntry[KanbanStore]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    async_setup_services(hass)
+    async_setup_websocket(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: KanbanConfigEntry) -> bool:

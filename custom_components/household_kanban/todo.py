@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import KanbanConfigEntry
-from .const import STATUS_COMPLETED
+from .const import STATUS_COMPLETED, STATUS_NEEDS_ACTION
 from .store import ItemData, KanbanStore, ParentData, item_sort_key
 
 
@@ -90,30 +90,22 @@ class KanbanTodoList(TodoListEntity):
         self.async_on_remove(self._store.add_listener(self._on_store_change))
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
-        new = await self._store.async_add_item(
+        await self._store.async_add_item(
             self._parent_id,
             item.summary or "",
             description=item.description or "",
             due=_due_to_str(item.due),
+            status=str(item.status or STATUS_NEEDS_ACTION),
         )
-        if item.status == TodoItemStatus.COMPLETED:
-            await self._store.async_set_status(new.uid, STATUS_COMPLETED)
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
-        current = self._store.items[item.uid]
         fields: dict = {
             "summary": item.summary or "",
             "description": item.description or "",
             "due": _due_to_str(item.due),
         }
-        if fields["due"] != current.due:
-            fields |= {"moved": 0, "raised": False}
-        status = str(item.status or current.status)
-        if status != current.status:
-            fields["status"] = status
-            fields["completed_at"] = (
-                dt_util.utcnow().isoformat() if status == STATUS_COMPLETED else None
-            )
+        if item.status:
+            fields["status"] = str(item.status)  # store owns the completed_at rule
         await self._store.async_update_item(item.uid, **fields)
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
