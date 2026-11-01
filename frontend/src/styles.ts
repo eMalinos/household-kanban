@@ -136,4 +136,27 @@ export const styles = css`
   .danger-link { height: 40px; padding: 0 6px; border: 0; background: transparent; color: rgb(var(--c-red)); font-size: 14px; font-weight: 600; }
   .danger-btn { height: 40px; padding: 0 18px; border-radius: 999px; border: 0; background: rgb(var(--c-red)); color: #fff; font-size: 14px; font-weight: 700; }
   .danger-text { font-size: 14px; font-weight: 600; color: rgb(var(--c-red)); }
+
+  .note-btn { border: 0; background: transparent; text-align: left; font-family: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .note-btn:focus-visible, .hist-reopen:focus-visible, .hist-search input:focus-visible { outline: 2px solid var(--kb-accent); outline-offset: 2px; }
+  dialog.kb-history { height: min(720px, calc(100vh - 24px)); }
+  .kb-history .dlg { min-height: 100%; box-sizing: border-box; }
+  .hist-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+  .hist-sub { font-size: 13px; color: var(--kb-text-2); }
+  .hist-search { display: flex; align-items: center; height: 42px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--kb-border); background: var(--kb-fill); box-shadow: var(--kb-inset); }
+  .hist-search input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font: inherit; font-size: 14px; color: var(--kb-text); }
+  .hist-chip { display: inline-flex; align-items: center; gap: 6px; padding-left: 6px; }
+  .hist-list { display: flex; flex-direction: column; gap: 14px; }
+  .hist-group { display: flex; flex-direction: column; gap: 6px; }
+  .hist-group h3 { margin: 0; padding: 0 4px; }
+  .hist-rows { list-style: none; margin: 0; padding: 4px; border-radius: 16px; background: var(--kb-fill); box-shadow: var(--kb-inset); display: flex; flex-direction: column; }
+  .hist-row { display: flex; align-items: center; gap: 10px; padding: 8px; }
+  .hist-row + .hist-row { border-top: 1px solid var(--kb-border); }
+  .hist-check { width: 20px; height: 20px; flex: none; border-radius: 50%; background: rgb(var(--c-green)); color: #fff; display: grid; place-items: center; }
+  .hist-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .hist-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+  .hist-meta { font-size: 12px; color: var(--kb-text-2); }
+  .hist-reopen { width: 32px; height: 32px; flex: none; border-radius: 50%; border: 0; background: transparent; color: var(--kb-text-2); display: grid; place-items: center; padding: 0; cursor: pointer; }
+  .hist-empty { padding: 24px; text-align: center; font-size: 14px; }
+  .hist-more { align-self: center; }
 `;

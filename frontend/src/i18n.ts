@@ -19,6 +19,9 @@ const en = {
   q_today: "Today", q_tomorrow: "Tomorrow", q_weekend: "Weekend", q_none: "No date",
   cancel: "Cancel", save: "Save", delete: "Delete", delete_confirm: "Delete this task?", delete_yes: "Delete",
   err_save: "Could not save the task.", err_delete: "Could not delete the task.",
+  history: "History", hist_total: "{n} completed", hist_search: "Search", hist_search_ph: "Search completed…",
+  hist_empty: "Nothing found", hist_more: "Load more", hist_last_week: "Last week", reopen: "Reopen",
+  err_history: "Could not load the history.", err_reopen: "Could not reopen the task.",
 };
 const cs: typeof en = {
   title: "Úkoly",
@@ -41,6 +44,9 @@ const cs: typeof en = {
   q_today: "Dnes", q_tomorrow: "Zítra", q_weekend: "Víkend", q_none: "Bez termínu",
   cancel: "Zrušit", save: "Uložit", delete: "Smazat", delete_confirm: "Smazat tento úkol?", delete_yes: "Smazat",
   err_save: "Úkol se nepodařilo uložit.", err_delete: "Úkol se nepodařilo smazat.",
+  history: "Historie", hist_total: "Hotových: {n}", hist_search: "Hledat", hist_search_ph: "Hledat v hotových…",
+  hist_empty: "Nic nenalezeno", hist_more: "Načíst další", hist_last_week: "Minulý týden", reopen: "Znovu otevřít",
+  err_history: "Historii se nepodařilo načíst.", err_reopen: "Úkol se nepodařilo znovu otevřít.",
 };
 
 export type Key = keyof typeof en;

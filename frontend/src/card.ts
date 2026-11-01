@@ -1,6 +1,6 @@
 import { LitElement, html, nothing, type PropertyValues } from "lit";
 import Sortable from "sortablejs";
-import { createItem, deleteItem, setStatus, subscribeBoard, updateItem, type Hass } from "./api";
+import { createItem, deleteItem, fetchHistory, setStatus, subscribeBoard, updateItem, type Hass } from "./api";
 import { addDays, firstWeekday, parseDue, startOfDay, weekRange, ymd } from "./logic/dates";
 import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
@@ -12,6 +12,7 @@ import type { Board, Item, Priority } from "./types";
 import { changedFields, draftOf, emptyDraft, fieldsOf, quickDate, renderDialog, type Draft } from "./ui/detail-dialog";
 import { renderBoard } from "./ui/board";
 import { renderFilters, type FilterState } from "./ui/filters";
+import { renderHistory, type HistoryState } from "./ui/history-dialog";
 import type { Env } from "./ui/item-card";
 
 export interface CardConfig {
@@ -25,6 +26,7 @@ export interface CardConfig {
 }
 
 const DEFAULT_COLUMNS: ColumnId[] = ["todo", "week", "today", "done"];
+const HISTORY_PAGE = 50;
 
 class HouseholdKanbanCard extends LitElement {
   static properties = {
@@ -38,6 +40,7 @@ class HouseholdKanbanCard extends LitElement {
     _draft: { state: true },
     _busy: { state: true },
     _dlgError: { state: true },
+    _hist: { state: true },
   };
   static styles = styles;
 
@@ -51,6 +54,11 @@ class HouseholdKanbanCard extends LitElement {
   _draft?: Draft;
   _busy = false;
   _dlgError?: Key;
+  _hist?: HistoryState;
+  private _hq = 0; // bumped per filter change/close: a response of an older query is dropped
+  private _hTimer?: number;
+  private _hObs?: IntersectionObserver;
+  private _hMore: { el: HTMLElement; n: number } | null = null;
   private _ctx?: Ctx;
   private _down?: { x: number; y: number; t: number };
   private _sortables = new Map<HTMLElement, Sortable>();
@@ -86,6 +94,10 @@ class HouseholdKanbanCard extends LitElement {
     this._sortables.forEach((s) => s.destroy());
     this._sortables.clear();
     this._endDrag(); // destroy() does not fire `end`; do not hold board pushes forever
+    window.clearTimeout(this._hTimer);
+    this._hObs?.disconnect();
+    this._hObs = undefined;
+    this._hMore = null;
     void this._unsub?.then((u) => u()).catch(() => undefined);
     this._unsub = undefined;
   }
@@ -159,6 +171,72 @@ class HouseholdKanbanCard extends LitElement {
     this._draft = draft;
   }
 
+  private _openHistory(returnTo: string): void {
+    if (this._draft || this._hist) return;
+    this._returnTo = () => this.renderRoot.querySelector<HTMLElement>(returnTo);
+    this._hist = { search: "", parent: null, items: [], total: 0, loading: false };
+    void this._loadHistory(true);
+  }
+
+  private _closeHistory(): void {
+    window.clearTimeout(this._hTimer);
+    this._hq++;
+    this._hist = undefined;
+  }
+
+  /** `reset` starts over at offset 0 for the current filters; otherwise appends the next page. */
+  private async _loadHistory(reset: boolean): Promise<void> {
+    const hass = this.hass, h = this._hist;
+    if (!hass || !h) return;
+    if (reset) this._hq++; else if (h.loading) return;
+    const q = this._hq;
+    this._hist = { ...h, loading: true, error: undefined };
+    try {
+      const r = await fetchHistory(hass, {
+        search: h.search.trim() || undefined, parent: h.parent ?? undefined,
+        offset: reset ? 0 : h.items.length, limit: HISTORY_PAGE,
+      });
+      if (q !== this._hq || !this._hist) return;
+      this._hist = { ...this._hist, items: reset ? r.items : [...this._hist.items, ...r.items], total: r.total, loading: false };
+    } catch (e) {
+      console.warn("household_kanban: history failed", e);
+      if (q === this._hq && this._hist) this._hist = { ...this._hist, loading: false, error: "err_history" };
+    }
+  }
+
+  private _histFilter(patch: Partial<Pick<HistoryState, "search" | "parent">>, wait: number): void {
+    if (!this._hist) return;
+    this._hist = { ...this._hist, ...patch };
+    window.clearTimeout(this._hTimer);
+    this._hTimer = window.setTimeout(() => void this._loadHistory(true), wait);
+  }
+
+  private _reopen(uid: string): void {
+    const hass = this.hass;
+    if (!hass) return;
+    setStatus(hass, uid, "needs_action").then(() => {
+      const h = this._hist;
+      if (!h || !h.items.some((i) => i.uid === uid)) return;
+      this._hist = { ...h, items: h.items.filter((i) => i.uid !== uid), total: Math.max(0, h.total - 1), error: undefined };
+    }, (err) => {
+      console.warn("household_kanban: reopen failed", err);
+      if (this._hist) this._hist = { ...this._hist, error: "err_reopen" };
+    });
+  }
+
+  /** Load the next page when the "Load more" button scrolls into view; the button itself is the fallback. */
+  private _observeMore(): void {
+    const el = this.renderRoot.querySelector<HTMLElement>(".hist-more");
+    const n = this._hist?.items.length ?? 0;
+    if (!el || this._hist?.loading) { if (!el) { this._hObs?.disconnect(); this._hMore = null; } return; }
+    if (this._hMore?.el === el && this._hMore.n === n) return;
+    this._hMore = { el, n };
+    if (typeof IntersectionObserver === "undefined") return;
+    this._hObs ??= new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) void this._loadHistory(false); });
+    this._hObs.disconnect(); // observing anew reports again, so a still-visible button keeps paging
+    this._hObs.observe(el);
+  }
+
   private _add(col: string, parents: { id: string }[], ctx: Ctx, returnTo = `.col[data-col="${col}"] .add`): void {
     const back = () => this.renderRoot.querySelector<HTMLElement>(returnTo);
     const parent = this._filter.parent ?? parents.find((p) => p.id === "household")?.id ?? parents[0]?.id;
@@ -216,10 +294,12 @@ class HouseholdKanbanCard extends LitElement {
 
   protected updated(): void {
     this._syncSortables();
+    this._observeMore();
     const dlg = this.renderRoot.querySelector("dialog");
     if (dlg && !dlg.open) {
       dlg.showModal();
-      if (!this._draft?.uid) this.renderRoot.querySelector<HTMLElement>("#kb-title")?.focus();
+      if (this._hist) this.renderRoot.querySelector<HTMLElement>(".kb-history input")?.focus();
+      else if (!this._draft?.uid) this.renderRoot.querySelector<HTMLElement>("#kb-title")?.focus();
     } else if (!dlg && this._returnTo) {
       const sel = this._returnTo;
       this._returnTo = undefined;
@@ -262,6 +342,7 @@ class HouseholdKanbanCard extends LitElement {
       ${this._notice ? html`<div class="notice" role="alert">${t(lang, this._notice)}</div>` : nothing}
       <header>
         <div class="titles"><h1>${t(lang, "title")}</h1><div class="summary">${this._summary(scoped, ctx, lang)}</div></div>
+        <button class="pill-btn hist-btn" type="button" @click=${() => this._openHistory("header .hist-btn")}>${t(lang, "history")}</button>
         <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, "header .new")}>+ ${t(lang, "new_note")}</button>
       </header>
       ${renderFilters(env, f, people, scoped, (patch) => { this._filter = { ...f, ...patch }; })}
@@ -275,7 +356,16 @@ class HouseholdKanbanCard extends LitElement {
         },
         onFocus: (id) => { this._filter = { ...f, parent: id }; },
         onAdd: (col) => this._add(col, parents, ctx),
+        onHistory: () => this._openHistory(".col[data-col=\"done\"] .note-btn"),
       }, env)}
+      ${this._hist ? renderHistory(this._hist, {
+        hass, lang, now, parents, firstDay: firstWeekday(cfg.week_end, hass.locale),
+        onSearch: (search) => this._histFilter({ search }, 300),
+        onParent: (parent) => this._histFilter({ parent }, 0),
+        onReopen: (item) => this._reopen(item.uid),
+        onMore: () => void this._loadHistory(false),
+        onClose: () => this._closeHistory(),
+      }) : nothing}
       ${this._draft ? renderDialog(this._draft, {
         hass, lang, now, parents, people, busy: this._busy, error: this._dlgError,
         onChange: (patch) => { if (this._draft) this._draft = { ...this._draft, ...patch }; },

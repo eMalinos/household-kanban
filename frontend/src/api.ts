@@ -1,4 +1,4 @@
-import type { Board } from "./types";
+import type { Board, Item } from "./types";
 
 /** The slice of the Home Assistant frontend `hass` object this card uses. */
 export interface Hass {
@@ -7,6 +7,7 @@ export interface Hass {
   language?: string;
   connection: {
     subscribeMessage<T>(cb: (event: T) => void, msg: Record<string, unknown>): Promise<() => void>;
+    sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
   };
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
 }
@@ -19,6 +20,12 @@ export function subscribeBoard(hass: Hass, cb: (board: Board) => void): Promise<
 
 export function setStatus(hass: Hass, uid: string, status: "needs_action" | "completed"): Promise<unknown> {
   return hass.callService(DOMAIN, "set_status", { uid, status });
+}
+
+export interface HistoryQuery { search?: string; parent?: string; offset: number; limit: number }
+
+export function fetchHistory(hass: Hass, q: HistoryQuery): Promise<{ items: Item[]; total: number }> {
+  return hass.connection.sendMessagePromise({ type: `${DOMAIN}/history`, ...q });
 }
 
 export interface ItemFields {

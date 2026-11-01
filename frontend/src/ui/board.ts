@@ -18,6 +18,7 @@ export interface BoardView {
   onFocus: (parentId: string) => void;
   /** Column "+": `col` is a ColumnId, or p1/p2/p3 in priority grouping. */
   onAdd: (col: string) => void;
+  onHistory: () => void;
 }
 
 const byRecent = (a: Item, b: Item) => +new Date(b.completed_at ?? 0) - +new Date(a.completed_at ?? 0);
@@ -55,7 +56,7 @@ export function renderBoard(items: Item[], v: BoardView, env: Env): TemplateResu
       ${entries.map((e) => "items" in e
         ? renderStack(e, env, v.expanded.has(e.parent.id), v.onExpand, v.onFocus)
         : renderItem(e, env, v.group === "date"))}
-      ${col.done ? html`<div class="note">${t(env.lang, "done_note", { days: v.ctx.doneDays, older: olderDone })}</div>` : nothing}
+      ${col.done ? html`<button class="note note-btn" type="button" @click=${v.onHistory}>${t(env.lang, "done_note", { days: v.ctx.doneDays, older: olderDone })}</button>` : nothing}
       ${!col.done && entries.length === 0 ? html`<div class="empty">${t(env.lang, "nothing")}</div>` : nothing}
     </section>`;
   })}</div>`;
