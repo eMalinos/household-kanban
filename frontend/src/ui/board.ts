@@ -16,6 +16,8 @@ export interface BoardView {
   expanded: Set<string>;
   onExpand: (parentId: string, on: boolean) => void;
   onFocus: (parentId: string) => void;
+  /** Column "+": `col` is a ColumnId, or p1/p2/p3 in priority grouping. */
+  onAdd: (col: string) => void;
 }
 
 const byRecent = (a: Item, b: Item) => +new Date(b.completed_at ?? 0) - +new Date(a.completed_at ?? 0);
@@ -44,10 +46,11 @@ export function renderBoard(items: Item[], v: BoardView, env: Env): TemplateResu
   const { cols, olderDone } = buildColumns(items, v, env.lang);
   return html`<div class="board">${cols.map((col) => {
     const entries: (Item | Stack)[] = col.done ? col.items : stackItems(col.items, v.board.parents, v.parent);
-    return html`<section class="col">
+    return html`<section class="col" data-col=${col.id}>
       <div class="col-head">
         <span class="led" style=${col.led ? `background:${col.led}` : ""}></span>
         <span class="label">${col.label}</span><span class="count">${col.items.length}</span>
+        ${col.done || col.id === "overdue" ? nothing : html`<button class="add" type="button" aria-label=${`${t(env.lang, "add_here")}: ${col.label}`} @click=${() => v.onAdd(col.id)}>+</button>`}
       </div>
       ${entries.map((e) => "items" in e
         ? renderStack(e, env, v.expanded.has(e.parent.id), v.onExpand, v.onFocus)

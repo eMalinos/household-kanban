@@ -13,6 +13,12 @@ const en = {
   done_note: "Last {days} days · {older} older in history",
   more: "+ {n} more", collapse: "Collapse", open_list: "Open list",
   loading: "Loading…", err_load: "Could not load tasks. Retrying…", err_update: "Could not update the task.",
+  new_note: "New note", add_here: "Add task", close: "Close",
+  f_title: "Title", f_title_ph: "What needs doing?", f_note: "Note", f_note_ph: "Details, link, measurements…",
+  f_parent: "List", f_prio: "Priority", f_due: "Due", f_who: "Who", f_date: "Date", f_time: "Time",
+  q_today: "Today", q_tomorrow: "Tomorrow", q_weekend: "Weekend", q_none: "No date",
+  cancel: "Cancel", save: "Save", delete: "Delete", delete_confirm: "Delete this task?", delete_yes: "Delete",
+  err_save: "Could not save the task.", err_delete: "Could not delete the task.",
 };
 const cs: typeof en = {
   title: "Úkoly",
@@ -29,6 +35,12 @@ const cs: typeof en = {
   done_note: "Za posledních {days} dní · {older} starších v historii",
   more: "+ {n} dalších", collapse: "Sbalit", open_list: "Otevřít seznam",
   loading: "Načítání…", err_load: "Úkoly se nepodařilo načíst. Zkouším znovu…", err_update: "Úkol se nepodařilo změnit.",
+  new_note: "Nová poznámka", add_here: "Přidat úkol", close: "Zavřít",
+  f_title: "Název", f_title_ph: "Co je potřeba udělat?", f_note: "Poznámka", f_note_ph: "Podrobnosti, odkaz, rozměry…",
+  f_parent: "Seznam", f_prio: "Priorita", f_due: "Termín", f_who: "Kdo", f_date: "Datum", f_time: "Čas",
+  q_today: "Dnes", q_tomorrow: "Zítra", q_weekend: "Víkend", q_none: "Bez termínu",
+  cancel: "Zrušit", save: "Uložit", delete: "Smazat", delete_confirm: "Smazat tento úkol?", delete_yes: "Smazat",
+  err_save: "Úkol se nepodařilo uložit.", err_delete: "Úkol se nepodařilo smazat.",
 };
 
 export type Key = keyof typeof en;

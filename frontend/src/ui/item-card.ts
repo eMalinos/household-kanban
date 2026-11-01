@@ -12,6 +12,8 @@ export interface Env {
   now: Date;
   parents: Parent[];
   onToggle: (item: Item) => void;
+  /** A tap/click on a card; the card ignores it when it ended a drag. */
+  onOpen: (item: Item, ev: Event) => void;
 }
 
 const COLORS = ["red", "orange", "yellow", "green", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "grey"];
@@ -73,7 +75,7 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
   const overdue = !done && item.due && startOfDay(parseDue(item.due).date) < today;
   const dueToday = !done && item.due && +startOfDay(parseDue(item.due).date) === +today;
   const flag = html`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5"></path></svg>`;
-  return html`<article class="card ${done ? "done" : ""}">
+  return html`<article class="card ${done ? "done" : ""}" data-uid=${item.uid} @click=${(ev: Event) => { if (!(ev.target as Element).closest(".check")) env.onOpen(item, ev); }}>
     <div class="row">
       ${parentDot(parent, true)}
       <span class="parent-name">${parent?.name ?? item.parent}</span>
@@ -81,7 +83,7 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
     </div>
     <div class="row top">
       ${checkButton(item, env)}
-      <span class="title">${item.summary}</span>
+      <button class="title" type="button">${item.summary}</button>
     </div>
     <div class="pills">
       ${!done && showPriority ? html`<span class="pill prio-${item.priority} ${colorClass(["", "red", "orange", "grey"][item.priority])}">${flag}${t(env.lang, `prio_${item.priority}` as "prio_1")}</span>` : nothing}

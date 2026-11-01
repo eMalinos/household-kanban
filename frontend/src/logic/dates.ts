@@ -4,6 +4,31 @@ export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+const p2 = (n: number) => String(n).padStart(2, "0");
+
+/** Local calendar date as "YYYY-MM-DD". */
+export function ymd(d: Date): string {
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+}
+
+/** Date + optional "HH:MM" (both local) as the service `due` value: a date, or an ISO datetime with offset. */
+export function toDue(date: string, time: string): string | null {
+  if (!date) return null;
+  if (!time) return date;
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  const off = -new Date(y, m - 1, d, hh, mm).getTimezoneOffset();
+  const a = Math.abs(off);
+  return `${date}T${p2(hh)}:${p2(mm)}:00${off < 0 ? "-" : "+"}${p2(Math.floor(a / 60))}:${p2(a % 60)}`;
+}
+
+/** Local "HH:MM" of a due value, "" for a date-only one. */
+export function dueTime(due: string | null): string {
+  if (!due) return "";
+  const { date, hasTime } = parseDue(due);
+  return hasTime ? `${p2(date.getHours())}:${p2(date.getMinutes())}` : "";
+}
+
 export function addDays(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 }
