@@ -97,8 +97,8 @@ export const styles = css`
   .cl-row[aria-checked="true"] .cl-box, .cl-check[aria-checked="true"] { border: 0; background: rgb(var(--c-green)); color: #fff; }
   .cl-row[aria-checked="true"] .cl-t, .cl-item.done .cl-text { color: var(--kb-text-2); text-decoration: line-through; }
   .cl-more { align-self: flex-start; }
-  .note { font-size: 13px; line-height: 1.4; color: var(--kb-text-2); overflow-wrap: anywhere; }
-  .note.clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+  .note { font-size: 13px; line-height: 1.45; color: var(--kb-text-2); overflow-wrap: anywhere; }
+  .note.clamp { max-height: calc(var(--clamp, 3) * 1.45em); overflow: hidden; }
   .note.plain { white-space: pre-wrap; }
   .note ha-markdown { display: block; }
   .fmt-btn { border: 1px solid var(--kb-border); background: var(--kb-fill); color: inherit; border-radius: 8px; min-width: 30px; height: 28px; font: inherit; font-size: 13px; cursor: pointer; }

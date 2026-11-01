@@ -2539,8 +2539,8 @@ const Qi = en`
   .cl-row[aria-checked="true"] .cl-box, .cl-check[aria-checked="true"] { border: 0; background: rgb(var(--c-green)); color: #fff; }
   .cl-row[aria-checked="true"] .cl-t, .cl-item.done .cl-text { color: var(--kb-text-2); text-decoration: line-through; }
   .cl-more { align-self: flex-start; }
-  .note { font-size: 13px; line-height: 1.4; color: var(--kb-text-2); overflow-wrap: anywhere; }
-  .note.clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+  .note { font-size: 13px; line-height: 1.45; color: var(--kb-text-2); overflow-wrap: anywhere; }
+  .note.clamp { max-height: calc(var(--clamp, 3) * 1.45em); overflow: hidden; }
   .note.plain { white-space: pre-wrap; }
   .note ha-markdown { display: block; }
   .fmt-btn { border: 1px solid var(--kb-border); background: var(--kb-fill); color: inherit; border-radius: 8px; min-width: 30px; height: 28px; font: inherit; font-size: 13px; cursor: pointer; }
@@ -2759,7 +2759,7 @@ function or(o, e) {
 }
 const yo = (o) => ({ done: o.filter((e) => e.done).length, total: o.length });
 function Cn(o, e = {}) {
-  const t = e.clamp ? `-webkit-line-clamp:${e.clamp}` : b, n = e.clamp ? "note clamp" : "note";
+  const t = e.clamp ? `--clamp:${e.clamp}` : b, n = e.clamp ? "note clamp" : "note";
   return customElements.get("ha-markdown") ? h`<div class=${n} style=${t}><ha-markdown .content=${o} breaks></ha-markdown></div>` : h`<div class="${n} plain" style=${t}>${o}</div>`;
 }
 function nr(o, e, t, n) {
@@ -2772,19 +2772,19 @@ function nr(o, e, t, n) {
   if (n === "italic") return i("*", "*");
   if (n === "link")
     return { ...i("[", "](https://)"), start: t + 3, end: t + 3 + 8 };
-  const r = o.lastIndexOf(`
-`, e - 1) + 1, s = o.indexOf(`
+  const r = e ? o.lastIndexOf(`
+`, e - 1) + 1 : 0, s = o.indexOf(`
 `, t), a = s < 0 ? o.length : s, l = o.slice(r, a).split(`
 `), d = l.every((c) => c.startsWith("- ")), p = l.map((c) => d ? c.slice(2) : `- ${c}`).join(`
 `);
   return { value: o.slice(0, r) + p + o.slice(a), start: r, end: r + p.length };
 }
-const io = ".check, .cl button, .note a", ir = 5, An = ["red", "orange", "yellow", "green", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "grey"], at = (o) => `c-${An.includes(o) ? o : "grey"}`;
+const ir = ".check, .cl button", io = (o) => !!o.target.closest(ir) || o.composedPath().some((e) => e.tagName === "A"), rr = 5, An = ["red", "orange", "yellow", "green", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "grey"], at = (o) => `c-${An.includes(o) ? o : "grey"}`;
 function lt(o, e) {
   var t;
   return String(((t = o.states[e]) == null ? void 0 : t.attributes.friendly_name) ?? e.split(".")[1] ?? e);
 }
-function rr(o) {
+function sr(o) {
   return o.split(/\s+/).filter(Boolean).slice(0, 2).map((e) => e[0].toUpperCase()).join("");
 }
 function He(o, e = !1) {
@@ -2796,27 +2796,27 @@ function ue(o, e, t = "", n = !1) {
   const i = lt(o, e), r = (a = o.states[e]) == null ? void 0 : a.attributes.entity_picture;
   if (typeof r == "string" && r) return h`<img class="ava ${t}" src=${r} alt=${n ? "" : i} title=${i} />`;
   const s = [...i].reduce((l, d) => (l * 31 + d.charCodeAt(0)) % 360, 7);
-  return h`<span class="ava ${t}" title=${i} style="background:linear-gradient(135deg,hsl(${s} 55% 62%),hsl(${(s + 25) % 360} 55% 42%))">${rr(i)}</span>`;
+  return h`<span class="ava ${t}" title=${i} style="background:linear-gradient(135deg,hsl(${s} 55% 62%),hsl(${(s + 25) % 360} 55% 42%))">${sr(i)}</span>`;
 }
 const Tn = h`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>`;
-function sr(o, e) {
+function ar(o, e) {
   const t = o.status === "completed";
   return h`<button class="check" type="button" aria-pressed=${t} aria-label=${o.summary}
     @click=${() => e.onToggle(o)}>${Tn}</button>`;
 }
-function ar(o, e) {
+function lr(o, e) {
   const { date: t, hasTime: n } = J(o.due), i = bo(I(e.now), t);
   let r;
   return i === -1 ? r = m(e.lang, "yesterday") : i < -1 ? r = m(e.lang, "days_ago", { n: -i }) : i === 0 ? r = m(e.lang, "today") : i === 1 ? r = m(e.lang, "tomorrow") : r = t.toLocaleDateString(e.lang, { weekday: "short", day: "numeric", month: "numeric" }), n ? `${r} ${t.toLocaleTimeString(e.lang, { hour: "2-digit", minute: "2-digit" })}` : r;
 }
-function lr(o, e) {
+function dr(o, e) {
   const t = bo(new Date(o.completed_at), I(e.now));
   return t <= 0 ? m(e.lang, "done_today") : t === 1 ? m(e.lang, "done_yesterday") : m(e.lang, "done_days_ago", { n: t });
 }
 function On(o, e, t) {
   const n = o.status === "completed", i = e.parents.find((_) => _.id === o.parent), r = I(e.now), s = !n && o.due && I(J(o.due).date) < r, a = !n && o.due && +I(J(o.due).date) == +r, l = h`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5"></path></svg>`, { note: d, lines: p } = _o(o.description), c = $e(p), f = yo(c);
   return h`<article class="card ${n ? "done" : ""}" data-uid=${o.uid} @click=${(_) => {
-    _.target.closest(io) || e.onOpen(o, _);
+    io(_) || e.onOpen(o, _);
   }}>
     <div class="row">
       ${He(i, !0)}
@@ -2824,22 +2824,22 @@ function On(o, e, t) {
       ${ue(e.hass, o.assignee)}
     </div>
     <div class="row top">
-      ${f.total ? b : sr(o, e)}
+      ${f.total ? b : ar(o, e)}
       <button class="title" type="button">${o.summary}</button>
       ${f.total ? h`<span class="pill c-green cl-progress">${f.done}/${f.total}</span>` : b}
     </div>
     ${d ? Cn(d, { clamp: 3 }) : b}
-    ${f.total ? dr(o, d, c, e) : b}
+    ${f.total ? cr(o, d, c, e) : b}
     <div class="pills">
       ${!n && t ? h`<span class="pill prio-${o.priority} ${at(["", "red", "orange", "grey"][o.priority])}">${l}${m(e.lang, `prio_${o.priority}`)}</span>` : b}
       ${!n && o.moved > 0 ? h`<span class="pill c-orange">${m(e.lang, o.raised ? "moved_raised" : "moved", { n: o.moved })}</span>` : b}
-      ${n && o.completed_at ? h`<span class="pill c-green">${lr(o, e)}</span>` : b}
-      ${!n && o.due ? h`<span class="pill ${s ? "c-red" : a ? "today" : "later"}">${ar(o, e)}</span>` : b}
+      ${n && o.completed_at ? h`<span class="pill c-green">${dr(o, e)}</span>` : b}
+      ${!n && o.due ? h`<span class="pill ${s ? "c-red" : a ? "today" : "later"}">${lr(o, e)}</span>` : b}
     </div>
   </article>`;
 }
-function dr(o, e, t, n) {
-  const i = (c, f = 0) => m(n.lang, c, { n: f }), r = yo(t), s = r.total - r.done, a = n.expanded.has(o.uid), l = a ? t : t.slice(0, Math.min(s, ir)), d = s - l.filter((c) => !c.done).length, p = a ? i("cl_hide_ticked") : `+ ${[d ? i("cl_more", d) : "", r.done ? i("cl_ticked", r.done) : ""].filter(Boolean).join(" · ")}`;
+function cr(o, e, t, n) {
+  const i = (c, f = 0) => m(n.lang, c, { n: f }), r = yo(t), s = r.total - r.done, a = n.expanded.has(o.uid), l = a ? t : t.slice(0, Math.min(s, rr)), d = s - l.filter((c) => !c.done).length, p = a ? i("cl_hide_ticked") : `+ ${[d ? i("cl_more", d) : "", r.done ? i("cl_ticked", r.done) : ""].filter(Boolean).join(" · ")}`;
   return h`<div class="cl-bar"><span style="width:${Math.round(r.done / r.total * 100)}%"></span></div>
     <div class="cl">
       ${l.map((c, f) => h`<button class="cl-row" type="button" role="checkbox" aria-checked=${c.done}
@@ -2867,7 +2867,7 @@ function Mn(o) {
     confirmDelete: !1
   };
 }
-function cr(o, e = {}) {
+function pr(o, e = {}) {
   return { status: "needs_action", heading: "", parent: o, summary: "", description: "", lines: [], preview: !1, priority: 2, assignee: null, date: "", time: "", confirmDelete: !1, ...e };
 }
 function Pn(o) {
@@ -2890,8 +2890,8 @@ function wt(o, e) {
   const t = I(e);
   return o === "none" ? "" : oe(o === "today" ? t : o === "tomorrow" ? G(t, 1) : G(t, (6 - t.getDay() + 7) % 7));
 }
-const pr = h`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5"></path></svg>`;
-function hr(o, e) {
+const hr = h`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5"></path></svg>`;
+function ur(o, e) {
   var s;
   const t = (a) => m(e.lang, a), n = !o.uid, i = ["today", "tomorrow", "weekend", "none"], r = (a) => {
     a.target === a.currentTarget && e.onClose();
@@ -2912,11 +2912,11 @@ function hr(o, e) {
       <input id="kb-title" class="dlg-title" type="text" autocomplete="off" .value=${o.summary} placeholder=${t("f_title_ph")}
         @input=${(a) => e.onChange({ summary: a.target.value })} />
 
-      ${o.lines.length || (s = e.parents.find((a) => a.id === o.parent)) != null && s.checklist ? br(o, e) : b}
+      ${o.lines.length || (s = e.parents.find((a) => a.id === o.parent)) != null && s.checklist ? mr(o, e) : b}
 
       <div class="field">
         <div class="row"><span class="dlg-label grow">${t("f_note")}</span>
-          ${o.preview ? b : ur.map(([a, l]) => h`<button class="fmt-btn" type="button" data-fmt=${a} aria-label=${t(`fmt_${a}`)}
+          ${o.preview ? b : fr.map(([a, l]) => h`<button class="fmt-btn" type="button" data-fmt=${a} aria-label=${t(`fmt_${a}`)}
             @click=${(d) => Xo(d, a, e)}>${l}</button>`)}
           <span class="seg2" role="group">
             <button class="pill-btn ${o.preview ? "" : "on"}" type="button" aria-pressed=${!o.preview} @click=${() => e.onChange({ preview: !1 })}>${t("note_edit")}</button>
@@ -2939,7 +2939,7 @@ function hr(o, e) {
       <div class="field"><span class="dlg-label">${t("f_prio")}</span>
         <div class="seg3" role="radiogroup" aria-label=${t("f_prio")}>
           ${[1, 2, 3].map((a) => h`<button type="button" role="radio" aria-checked=${o.priority === a}
-            class="prio-${a}" @click=${() => e.onChange({ priority: a })}>${pr}${t(`prio_${a}`)}</button>`)}
+            class="prio-${a}" @click=${() => e.onChange({ priority: a })}>${hr}${t(`prio_${a}`)}</button>`)}
         </div></div>
 
       <div class="field"><span class="dlg-label">${t("f_due")}</span>
@@ -2973,7 +2973,7 @@ function hr(o, e) {
     </div>
   </dialog>`;
 }
-const ur = [
+const fr = [
   ["bold", h`<b>B</b>`],
   ["italic", h`<i>I</i>`],
   ["bullets", "•"],
@@ -2986,8 +2986,8 @@ function Xo(o, e, t) {
   const i = nr(n.value, n.selectionStart, n.selectionEnd, e);
   n.value = i.value, n.focus(), n.setSelectionRange(i.start, i.end), t.onChange({ description: i.value });
 }
-const fr = h`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>`, gr = h`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>`;
-function br(o, e) {
+const gr = h`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>`, br = h`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>`;
+function mr(o, e) {
   const t = (s) => m(e.lang, s), n = yo(o.lines), i = o.lines.findIndex((s) => s.done), r = (s) => {
     const a = or(o.lines, s.value);
     s.value = "", a !== o.lines && e.onChange({ lines: a });
@@ -2998,9 +2998,9 @@ function br(o, e) {
     <div class="cl-box-list">
       ${o.lines.map((s, a) => h`<div class="cl-item ${s.done ? "done" : ""} ${a === i && a > 0 ? "first-done" : ""}">
         <button class="cl-check" type="button" role="checkbox" aria-checked=${s.done} aria-label=${s.text}
-          @click=${() => e.onChange({ lines: Dn(o.lines, a) })}>${gr}</button>
+          @click=${() => e.onChange({ lines: Dn(o.lines, a) })}>${br}</button>
         <span class="cl-text">${s.text}</span>
-        <button class="cl-x" type="button" aria-label=${t("cl_remove")} @click=${() => e.onChange({ lines: tr(o.lines, a) })}>${fr}</button>
+        <button class="cl-x" type="button" aria-label=${t("cl_remove")} @click=${() => e.onChange({ lines: tr(o.lines, a) })}>${gr}</button>
       </div>`)}
       <label class="cl-add"><span aria-hidden="true">+</span>
         <input type="text" autocomplete="off" placeholder=${t("cl_add_ph")} aria-label=${t("cl_add_ph")}
@@ -3020,9 +3020,9 @@ function At(o, e) {
   const t = Vo(o), n = Vo(e);
   return t !== n ? t < n ? -1 : 1 : o.priority - e.priority || +new Date(o.created_at) - +new Date(e.created_at);
 }
-const mr = ["todo", "later", "week", "overdue", "today", "done"], zn = (o, e) => +new Date(e.completed_at ?? 0) - +new Date(o.completed_at ?? 0);
-function _r(o, e, t) {
-  const { ctx: n } = e, i = o.filter((l) => l.status === "needs_action"), r = o.filter((l) => we(l, n) === "done").sort(zn), s = o.filter((l) => l.status === "completed").length - r.length, a = e.group === "date" ? mr.filter((l) => l !== "done" && (l === "todo" || n.enabled.has(l))).map((l) => ({
+const _r = ["todo", "later", "week", "overdue", "today", "done"], zn = (o, e) => +new Date(e.completed_at ?? 0) - +new Date(o.completed_at ?? 0);
+function vr(o, e, t) {
+  const { ctx: n } = e, i = o.filter((l) => l.status === "needs_action"), r = o.filter((l) => we(l, n) === "done").sort(zn), s = o.filter((l) => l.status === "completed").length - r.length, a = e.group === "date" ? _r.filter((l) => l !== "done" && (l === "todo" || n.enabled.has(l))).map((l) => ({
     id: l,
     label: m(t, `col_${l}`),
     led: l === "overdue" ? "rgb(var(--c-red))" : l === "week" || l === "today" ? "var(--kb-accent)" : void 0,
@@ -3035,8 +3035,8 @@ function _r(o, e, t) {
   }));
   return n.enabled.has("done") && a.push({ id: "done", label: m(t, "col_done"), led: "rgb(var(--c-green))", items: r, done: !0 }), { cols: a, olderDone: s };
 }
-function vr(o, e, t) {
-  const { cols: n, olderDone: i } = _r(o, e, t.lang);
+function yr(o, e, t) {
+  const { cols: n, olderDone: i } = vr(o, e, t.lang);
   return h`<div class="board">${n.map((r) => h`<section class="col" data-col=${r.id}>
       <div class="col-head">
         <span class="led" style=${r.led ? `background:${r.led}` : ""}></span>
@@ -3048,8 +3048,8 @@ function vr(o, e, t) {
       ${!r.done && r.items.length === 0 ? h`<div class="empty">${m(t.lang, "nothing")}</div>` : b}
     </section>`)}</div>`;
 }
-const yr = ["today", "week", "todo", "done"];
-function xr(o, e) {
+const xr = ["today", "week", "todo", "done"];
+function wr(o, e) {
   return h`<dialog class="sheet kb-sheet" aria-label=${o.title}
     @cancel=${(t) => {
     t.preventDefault(), o.onCancel();
@@ -3070,21 +3070,21 @@ function xr(o, e) {
       ${o.entries.length === 0 ? h`<div class="empty">${m(e.lang, "nothing")}</div>` : b}
       ${o.isDone ? h`<button class="pill-btn hist-link" type="button" @click=${o.onHistory}>${m(e.lang, "older_history", { n: o.olderDone })}</button>` : b}
     </div>
-    ${o.menu ? wr(o.menu, o, e) : b}
+    ${o.menu ? kr(o.menu, o, e) : b}
   </dialog>`;
 }
-function wr(o, e, t) {
+function kr(o, e, t) {
   return h`<div class="menu-wrap" @click=${(n) => {
     n.target === n.currentTarget && e.onMenuClose();
   }}>
     <div class="menu" role="group" aria-label=${m(t.lang, "move_to")}>
       <div class="menu-title">${m(t.lang, "move_to")}<small>${o.summary}</small></div>
-      ${yr.map((n) => h`<button class="menu-btn" type="button" data-move=${n} @click=${() => e.onMove(o, n)}>${m(t.lang, `col_${n}`)}</button>`)}
+      ${xr.map((n) => h`<button class="menu-btn" type="button" data-move=${n} @click=${() => e.onMove(o, n)}>${m(t.lang, `col_${n}`)}</button>`)}
       <button class="menu-btn muted" type="button" @click=${e.onMenuClose}>${m(t.lang, "cancel")}</button>
     </div>
   </div>`;
 }
-function kr(o, e) {
+function $r(o, e) {
   const t = { todo: 0, later: 0, week: 0, today: 0, overdue: 0, done: 0 }, n = I(e.now), i = [];
   let r = 0;
   for (const a of o) {
@@ -3101,9 +3101,9 @@ const ro = {
   todo: { icon: "mdi:format-list-checks", color: "teal" },
   later: { icon: "mdi:calendar-clock", color: "purple" },
   done: { icon: "mdi:check-circle-outline", color: "green" }
-}, $r = ["today", "overdue", "week", "todo", "later", "done"];
-function Sr(o, e) {
-  const t = kr(o.items, o.ctx), n = o.items.filter((i) => i.status === "needs_action");
+}, Sr = ["today", "overdue", "week", "todo", "later", "done"];
+function Er(o, e) {
+  const t = $r(o.items, o.ctx), n = o.items.filter((i) => i.status === "needs_action");
   return h`<div class="tiles-view">
     <div class="people ${o.who ? "has-filter" : ""}" role="group" aria-label=${m(e.lang, "filter_people")}>
       ${o.people.map((i) => {
@@ -3113,7 +3113,7 @@ function Sr(o, e) {
   })}
     </div>
     <div class="tiles">
-      ${$r.filter((i) => o.ctx.enabled.has(i)).map((i) => {
+      ${Sr.filter((i) => o.ctx.enabled.has(i)).map((i) => {
     const r = i === "today" || i === "done", s = i === "today" ? t.overdue : 0;
     return h`<button class="tile ${r ? "wide" : ""} ${at(ro[i].color)}" type="button" data-tile=${i} @click=${() => o.onTile(i)}>
           <span class="row">
@@ -3135,7 +3135,7 @@ function Sr(o, e) {
     </div>
   </div>`;
 }
-function Er(o, e, t, n, i) {
+function Dr(o, e, t, n, i) {
   const r = n.filter((a) => a.status === "needs_action" && (!e.who || a.assignee === e.who)), s = (a) => {
     const l = e.parent === ((a == null ? void 0 : a.id) ?? null), d = r.filter((p) => !a || p.parent === a.id).length;
     return h`<button class="chip ${a ? at(a.color) : ""}" type="button" aria-pressed=${l}
@@ -3159,7 +3159,7 @@ function Er(o, e, t, n, i) {
     </div>
   </div>`;
 }
-function Dr(o, e, t, n) {
+function Cr(o, e, t, n) {
   const i = I(e), r = G(i, -((i.getDay() - n + 7) % 7)), s = G(r, -7), a = new Intl.DateTimeFormat(t, { month: "long", year: "numeric" }), l = /* @__PURE__ */ new Map();
   for (const d of o) {
     const p = new Date(d.completed_at ?? 0);
@@ -3170,11 +3170,11 @@ function Dr(o, e, t, n) {
   }
   return [...l.values()];
 }
-const Cr = h`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>`;
-function Ar(o, e) {
+const Ar = h`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg>`;
+function Tr(o, e) {
   const t = (a) => m(e.lang, a), n = new Intl.DateTimeFormat(e.lang, { day: "numeric", month: "short" }), i = (a) => {
     a.target === a.currentTarget && e.onClose();
-  }, r = (a) => e.parents.find((l) => l.id === a), s = Dr(o.items, e.now, e.lang, e.firstDay);
+  }, r = (a) => e.parents.find((l) => l.id === a), s = Cr(o.items, e.now, e.lang, e.firstDay);
   return h`<dialog class="kb-dialog kb-history" aria-labelledby="kb-hist-title" @close=${e.onClose} @click=${i}>
     <div class="dlg">
       <div class="dlg-head">
@@ -3206,7 +3206,7 @@ function Ar(o, e) {
               <span class="hist-meta">${((d = r(l.parent)) == null ? void 0 : d.name) ?? l.parent} · ${l.completed_at ? n.format(new Date(l.completed_at)) : ""}</span></div>
             ${l.assignee ? ue(e.hass, l.assignee) : b}
             <button class="hist-reopen" type="button" title=${t("reopen")} aria-label=${`${t("reopen")}: ${l.summary}`}
-              @click=${() => e.onReopen(l)}>${Cr}</button>
+              @click=${() => e.onReopen(l)}>${Ar}</button>
           </li>`;
   })}</ul>
         </section>`)}
@@ -3217,24 +3217,24 @@ function Ar(o, e) {
   </dialog>`;
 }
 const Vt = "household", Nn = { name: "", icon: "mdi:format-list-checks", color: "blue", checklist: !1 };
-function Tr(o, e) {
+function Or(o, e) {
   if (!o || !e) return null;
   const t = ["end_of_day_mode", "close_time", "notify_enabled", "notify_time", "notify_assignee", "notify_services"], n = {};
   for (const i of t) JSON.stringify(o[i]) !== JSON.stringify(e[i]) && (n[i] = e[i]);
   return Object.keys(n).length ? n : null;
 }
-const Or = ["todo", "later", "week", "today", "done"], Mr = [["board", "tab_board"], ["eod", "tab_eod"], ["lists", "tab_lists"]], Pr = "M3 5h18v12H3zM8 21h8M12 17v4", zr = "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z", Re = (o, e = 16) => h`<svg width=${e} height=${e} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${o}></path></svg>`;
+const Mr = ["todo", "later", "week", "today", "done"], Pr = [["board", "tab_board"], ["eod", "tab_eod"], ["lists", "tab_lists"]], zr = "M3 5h18v12H3zM8 21h8M12 17v4", Nr = "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z", Re = (o, e = 16) => h`<svg width=${e} height=${e} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${o}></path></svg>`;
 function zt(o, e, t, n = {}, i = !1) {
   return h`<button class="switch" type="button" role="switch" aria-checked=${o} aria-label=${e} ?disabled=${i}
     data-col=${n.col ?? b} data-parent=${n.parent ?? b} @click=${t}></button>`;
 }
 function Gt(o, e, t) {
   return h`<div class="scope ${e ? "household" : "dashboard"}" role="note">
-    ${Re(e ? zr : Pr)}
+    ${Re(e ? Nr : zr)}
     <span class="scope-text"><b>${m(o, e ? "scope_household" : "scope_dashboard")}</b><span>${m(o, t)}</span></span>
   </div>`;
 }
-function Nr(o, e) {
+function Ir(o, e) {
   const t = (s) => m(e.lang, s), n = o.columns ?? [], i = (s, a, l, d) => h`
     <div class="set-line"><span class="grow">${s}</span>
       <div class="seg" role="radiogroup" aria-label=${s}>
@@ -3244,7 +3244,7 @@ function Nr(o, e) {
   return h`
     <section class="set-sec">
       <h3 class="dlg-label">${t("columns")}</h3>
-      <div class="set-rows">${Or.map((s) => h`<div class="set-row">
+      <div class="set-rows">${Mr.map((s) => h`<div class="set-row">
         <span class="led led-${s}"></span>
         <span class="set-text"><span class="set-name">${t(`col_${s}`)}</span><span class="set-hint">${t(`col_hint_${s}`)}</span></span>
         ${zt(
@@ -3269,33 +3269,33 @@ function Nr(o, e) {
       <span class="set-hint pad">${t("sort_hint")}</span>
     </section>`;
 }
-const Ir = [
+const Rr = [
   ["keep", "M5 21V4h11l-1.5 4L16 12H5", "red"],
   ["overdue", "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v5M12 16.5h.01", "red"],
   ["move", "M4 12h13M13 7l5 5-5 5M20 5v14", "blue"],
   ["raise", "M12 19V5M6 11l6-6 6 6", "orange"]
-], Rr = /^([01]\d|2[0-3]):[0-5]\d$/, Hr = h`<span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span>`;
+], Hr = /^([01]\d|2[0-3]):[0-5]\d$/, Fr = h`<span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span>`;
 function Go(o, e, t) {
   return h`<input class="time-in" type="time" aria-label=${e} .value=${o}
     @change=${(n) => {
     const i = n.target.value;
-    Rr.test(i) && t(i);
+    Hr.test(i) && t(i);
   }}>`;
 }
 function Ko(o, e, t, n, i) {
   return h`<button class="check-row" type="button" role="checkbox" aria-checked=${o} data-service=${i ?? b} @click=${n}>
-    ${Hr}${i ? Re("M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2") : b}
+    ${Fr}${i ? Re("M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2") : b}
     <span class="set-text"><span class="set-name">${e}</span><span class="set-hint ${i ? "mono" : ""}">${t}</span></span>
   </button>`;
 }
-function Fr(o, e) {
+function Lr(o, e) {
   const t = (a) => m(e.lang, a), n = o.eod;
   if (!n) return o.eodLoading ? h`<p class="set-hint pad">${t("loading")}</p>` : h``;
   const i = [...n.offered_services, ...n.notify_services.filter((a) => !n.offered_services.includes(a))], [r, s] = m(e.lang, "event_hint", { event: "\0" }).split("\0");
   return h`
     <section class="set-sec">
       <h3 class="dlg-label">${t("eod_title")}</h3>
-      <div class="eod-opts" role="radiogroup" aria-label=${t("eod_title")}>${Ir.map(([a, l, d]) => h`
+      <div class="eod-opts" role="radiogroup" aria-label=${t("eod_title")}>${Rr.map(([a, l, d]) => h`
         <button class="eod-opt" type="button" role="radio" data-mode=${a} aria-checked=${n.end_of_day_mode === a} @click=${() => e.onEod({ end_of_day_mode: a })}>
           <span class="radio"></span><span class="dot c-${d}">${Re(l, 15)}</span>
           <span class="set-text"><span class="set-name">${t(`eod_${a}`)}</span><span class="set-hint">${t(`eod_${a}_hint`)}</span></span>
@@ -3350,7 +3350,7 @@ function Zo(o, e) {
     </div>
   </div>`;
 }
-function Lr(o, e, t) {
+function jr(o, e, t) {
   const n = (r) => m(t.lang, r), i = t.parents.map((r) => r.id);
   return h`
     <section class="set-sec">
@@ -3378,10 +3378,10 @@ function Lr(o, e, t) {
   })}</div>
     </section>`;
 }
-function jr(o, e) {
+function Br(o, e) {
   const t = (r) => m(e.lang, r), n = (r) => {
     r.target === r.currentTarget && e.onClose();
-  }, i = o.tab === "board" ? h`${Gt(e.lang, !1, "scope_dashboard_hint")}${Nr(o.draft, e)}` : o.tab === "lists" ? h`${Gt(e.lang, !1, "scope_lists_hint")}${Lr(o.draft, o.form, e)}` : h`${Gt(e.lang, !0, "scope_household_hint")}${Fr(o, e)}`;
+  }, i = o.tab === "board" ? h`${Gt(e.lang, !1, "scope_dashboard_hint")}${Ir(o.draft, e)}` : o.tab === "lists" ? h`${Gt(e.lang, !1, "scope_lists_hint")}${jr(o.draft, o.form, e)}` : h`${Gt(e.lang, !0, "scope_household_hint")}${Lr(o, e)}`;
   return h`<dialog class="kb-dialog kb-settings ${o.narrow ? "narrow" : ""}" aria-labelledby="kb-set-title" @close=${e.onClose} @click=${n}>
     <div class="dlg">
       <div class="dlg-head">
@@ -3392,7 +3392,7 @@ function jr(o, e) {
         </button>
       </div>
       <div class="set-tabs" role="tablist" aria-label=${t("settings")}>
-        ${Mr.map(([r, s]) => h`<button type="button" role="tab" data-tab=${r} aria-selected=${o.tab === r} @click=${() => e.onTab(r)}>${t(s)}</button>`)}
+        ${Pr.map(([r, s]) => h`<button type="button" role="tab" data-tab=${r} aria-selected=${o.tab === r} @click=${() => e.onTab(r)}>${t(s)}</button>`)}
       </div>
       <div class="set-body" role="tabpanel">${i}</div>
       ${o.error ? h`<div class="notice" role="alert">${t(o.error)}</div>` : b}
@@ -3404,7 +3404,7 @@ function jr(o, e) {
     </div>
   </dialog>`;
 }
-const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`, Ot = class Ot extends Oe {
+const qr = 50, Ur = 600, Yr = 500, Wr = h`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`, Ot = class Ot extends Oe {
   constructor() {
     super(), this._filter = { who: null, parent: null, group: "date" }, this._expanded = /* @__PURE__ */ new Set(), this._loadFailed = !1, this._busy = !1, this._narrow = !1, this._raw = {}, this._sheetShown = !1, this._menuShown = !1, this._lpFired = !1, this._hq = 0, this._hMore = null, this._sortables = /* @__PURE__ */ new Map(), this._seq = 0, this._attempts = 0, this.addEventListener("pointerdown", (e) => {
       this._down = { x: e.clientX, y: e.clientY, t: e.timeStamp };
@@ -3431,7 +3431,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
     super.connectedCallback(), this._subscribe(), typeof ResizeObserver < "u" && (this._ro = new ResizeObserver((e) => {
       var n;
       const t = ((n = e[e.length - 1]) == null ? void 0 : n.contentRect.width) ?? 0;
-      t > 0 && (this._narrow = t < qr), this._narrow || this._closeSheet();
+      t > 0 && (this._narrow = t < Ur), this._narrow || this._closeSheet();
     }), this._ro.observe(this));
   }
   disconnectedCallback() {
@@ -3516,7 +3516,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
     r({ saving: !0, error: void 0 });
     const s = Pe(t.draft);
     let a = JSON.stringify(s) === JSON.stringify(this._config) ? void 0 : await this._saveDashboard(e, s, i);
-    const l = Tr(t.server, t.eod);
+    const l = Or(t.server, t.eod);
     if (l && i())
       try {
         const d = await zi(e, l);
@@ -3615,7 +3615,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
         search: n.search.trim() || void 0,
         parent: n.parent ?? void 0,
         offset: e ? 0 : n.items.length,
-        limit: Br
+        limit: qr
       });
       if (i !== this._hq || !this._hist) return;
       this._hist = { ...this._hist, items: e ? r.items : [...this._hist.items, ...r.items], total: r.total, loading: !1 };
@@ -3656,7 +3656,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
       week: oe(n.week.end),
       later: oe(G(n.week.end, 1))
     };
-    this._openDialog(cr(s, a ? { priority: Number(a[1]) } : { date: l[e] ?? "" }), r);
+    this._openDialog(pr(s, a ? { priority: Number(a[1]) } : { date: l[e] ?? "" }), r);
   }
   /** One Sortable per column; Lit owns the DOM, so a drop is undone here and the next board push re-renders. */
   _syncSortables() {
@@ -3668,7 +3668,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
       this._sortables.has(i) || this._sortables.set(i, x.create(i, {
         group: { name: "kb", pull: !0, put: (r) => r.el.dataset.col !== "overdue" },
         draggable: "[data-uid]",
-        filter: io,
+        filter: (r) => io(r),
         preventOnFilter: !1,
         sort: !1,
         delay: 150,
@@ -3717,9 +3717,9 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
   _lpStart(e) {
     this._lpFired = !1, this._lpCancel();
     const t = e.target, n = t.closest("[data-uid]"), i = n == null ? void 0 : n.dataset.uid;
-    !i || t.closest(io) || (this._lp = { x: e.clientX, y: e.clientY, timer: window.setTimeout(() => {
+    !i || io(e) || (this._lp = { x: e.clientX, y: e.clientY, timer: window.setTimeout(() => {
       this._lp = void 0, this._lpFired = !0, this._menu = i, this._menuFor = i;
-    }, Ur) });
+    }, Yr) });
   }
   _lpMove(e) {
     const t = this._lp;
@@ -3805,21 +3805,21 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
       <header>
         <div class="titles"><h1>${m(i, "title")}</h1><div class="summary">${this._summary(f, l, i)}</div></div>
         ${(v = e.user) != null && v.is_admin ? h`<button class="round-btn gear-btn" type="button" aria-label=${m(i, "settings")} title=${m(i, "settings")}
-          @click=${() => this._openSettings()}>${Yr}</button>` : b}
+          @click=${() => this._openSettings()}>${Wr}</button>` : b}
         <button class="pill-btn hist-btn" type="button" @click=${() => this._openHistory("header .hist-btn")}>${m(i, "history")}</button>
         <button class="new" type="button" @click=${() => this._add("todo", s, l, "header .new")}>+ ${m(i, "new_note")}</button>
       </header>
       ${this._narrow ? this._renderNarrow(d, l, f, p, s) : h`
-      ${Er(d, c, p, f, (g) => {
+      ${Dr(d, c, p, f, (g) => {
       this._filter = { ...c, ...g };
     })}
-      ${vr(_, {
+      ${yr(_, {
       ctx: l,
       group: c.group,
       onAdd: (g) => this._add(g, s, l),
       onHistory: () => this._openHistory('.col[data-col="done"] .note-btn')
     }, d)}`}
-      ${this._hist ? Ar(this._hist, {
+      ${this._hist ? Tr(this._hist, {
       hass: e,
       lang: i,
       now: r,
@@ -3831,7 +3831,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
       onMore: () => void this._loadHistory(!1),
       onClose: () => this._closeHistory()
     }) : b}
-      ${this._settings ? jr({ ...this._settings, narrow: this._narrow }, {
+      ${this._settings ? Br({ ...this._settings, narrow: this._narrow }, {
       hass: e,
       lang: i,
       parents: n.parents,
@@ -3860,7 +3860,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
         this._seq++, this._settings = void 0;
       }
     }) : b}
-      ${this._draft ? hr(this._draft, {
+      ${this._draft ? ur(this._draft, {
       hass: e,
       lang: i,
       now: r,
@@ -3903,7 +3903,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
     const p = (l == null ? void 0 : l.kind) === "parent" ? r.find((c) => c.id === (l == null ? void 0 : l.id)) : void 0;
     if ((l == null ? void 0 : l.kind) === "parent" && !p && (l = void 0, queueMicrotask(() => this._closeSheet())), l) {
       const c = l.id, f = (v) => v.filter((g) => g.status === "needs_action").sort(At), _ = l.kind === "parent" ? f(a.filter((v) => v.parent === l.id)) : c === "done" ? a.filter((v) => we(v, t) === "done").sort(zn) : f(a.filter((v) => we(v, t) === c)), k = p ? { icon: p.icon, color: p.color, title: p.name } : { ...ro[c], title: m(e.lang, `col_${c}`) };
-      d = xr({
+      d = wr({
         ...k,
         count: _.length,
         isDone: c === "done" && !p,
@@ -3920,7 +3920,7 @@ const Br = 50, qr = 600, Ur = 500, Yr = h`<svg width="18" height="18" viewBox="0
         press: { down: (v) => this._lpStart(v), move: (v) => this._lpMove(v), end: () => this._lpCancel() }
       }, e);
     }
-    return h`${Sr({
+    return h`${Er({
       ctx: t,
       items: a,
       people: i,

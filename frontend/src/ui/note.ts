@@ -5,7 +5,7 @@ import { html, nothing, type TemplateResult } from "lit";
  * plain pre-wrapped text, set as text, never as HTML.
  */
 export function renderNote(md: string, opts: { clamp?: number } = {}): TemplateResult {
-  const style = opts.clamp ? `-webkit-line-clamp:${opts.clamp}` : nothing;
+  const style = opts.clamp ? `--clamp:${opts.clamp}` : nothing;
   const cls = opts.clamp ? "note clamp" : "note";
   return customElements.get("ha-markdown")
     ? html`<div class=${cls} style=${style}><ha-markdown .content=${md} breaks></ha-markdown></div>`
@@ -27,7 +27,7 @@ export function applyFormat(value: string, start: number, end: number, kind: For
     const r = wrap("[", "](https://)");
     return { ...r, start: end + 3, end: end + 3 + "https://".length };
   }
-  const from = value.lastIndexOf("\n", start - 1) + 1;
+  const from = start ? value.lastIndexOf("\n", start - 1) + 1 : 0;
   const nl = value.indexOf("\n", end);
   const to = nl < 0 ? value.length : nl;
   const rows = value.slice(from, to).split("\n");

@@ -23,7 +23,11 @@ export interface Env {
 }
 
 /** Controls on a card that neither open the dialog nor start a drag. */
-export const NO_OPEN = ".check, .cl button, .note a";
+export const NO_OPEN = ".check, .cl button";
+
+/** A control or a link was hit; links of `ha-markdown` live in its shadow root, so look at the composed path. */
+export const skipOpen = (ev: Event): boolean =>
+  !!(ev.target as Element).closest(NO_OPEN) || ev.composedPath().some((n) => (n as Element).tagName === "A");
 
 /** Open lines shown on a collapsed card. */
 const SHOWN = 5;
@@ -90,7 +94,7 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
   const flag = html`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5"></path></svg>`;
   const { note, lines: raw } = split(item.description);
   const lines = order(raw), p = progress(lines);
-  return html`<article class="card ${done ? "done" : ""}" data-uid=${item.uid} @click=${(ev: Event) => { if (!(ev.target as Element).closest(NO_OPEN)) env.onOpen(item, ev); }}>
+  return html`<article class="card ${done ? "done" : ""}" data-uid=${item.uid} @click=${(ev: Event) => { if (!skipOpen(ev)) env.onOpen(item, ev); }}>
     <div class="row">
       ${parentDot(parent, true)}
       <span class="parent-name">${parent?.name ?? item.parent}</span>

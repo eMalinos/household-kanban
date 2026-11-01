@@ -19,6 +19,9 @@ test("applyFormat bullets prefixes every selected line and toggles off", () => {
   expect(on.value).toBe("x\n- one\n- two\ny");
   expect(applyFormat(on.value, on.start, on.end, "bullets").value).toBe("x\none\ntwo\ny");
 });
+test("applyFormat bullets on the first line when the value starts with a newline", () => {
+  expect(applyFormat("\nab", 0, 0, "bullets").value).toBe("- \nab");
+});
 test("applyFormat link wraps the selection and selects the url", () => {
   const r = applyFormat("see docs now", 4, 8, "link");
   expect(r.value).toBe("see [docs](https://) now");
@@ -33,7 +36,7 @@ test("fallback without ha-markdown renders plain text with no script execution",
   const div = host.querySelector("div") as HTMLElement;
   expect(div.textContent).toBe(src);
   expect(host.querySelector("script")).toBeNull();
-  expect(div.getAttribute("style")).toContain("-webkit-line-clamp:3");
+  expect(div.getAttribute("style")).toContain("--clamp:3");
   expect((window as any).__x).toBeUndefined();
 });
 
@@ -108,4 +111,17 @@ test("a toolbar click changes the note and keeps the checklist part", async () =
   btn(/^\s*Save\s*$/, dialog()).click();
   await settle();
   expect(calls).toEqual([["update_item", { uid: "a", description: "**word**\n\n- [ ] milk" }]]);
+});
+
+test("a click whose composed path holds an anchor in a shadow root does not open the dialog", async () => {
+  class FakeMd extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: "open" }).innerHTML = '<a href="#x">l</a>'; }
+  }
+  customElements.define("ha-markdown", FakeMd);
+  push(board([item("a", { description: "see [l](#x)" })]));
+    await settle();
+    const a = root().querySelector("article[data-uid=a] ha-markdown")!.shadowRoot!.querySelector("a")!;
+    a.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+    await settle();
+    expect(root().querySelector("dialog.kb-dialog")).toBeNull();
 });

@@ -23,7 +23,7 @@ import { compareItems } from "./logic/sort";
 import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
 import { NEW_PARENT, renderSettings, settingsPatch, type ParentForm, type SettingsState } from "./ui/settings-dialog";
-import { NO_OPEN, type Env } from "./ui/item-card";
+import { skipOpen, type Env } from "./ui/item-card";
 
 
 const HISTORY_PAGE = 50;
@@ -399,7 +399,7 @@ class HouseholdKanbanCard extends LitElement {
       if (this._sortables.has(el)) continue;
       this._sortables.set(el, Sortable.create(el, {
         group: { name: "kb", pull: true, put: (to) => (to.el as HTMLElement).dataset.col !== "overdue" },
-        draggable: "[data-uid]", filter: NO_OPEN, preventOnFilter: false, sort: false,
+        draggable: "[data-uid]", filter: (ev: Event) => skipOpen(ev), preventOnFilter: false, sort: false,
         delay: 150, delayOnTouchOnly: true, touchStartThreshold: 8, forceFallback: touch,
         // the exact node after the card is its own Lit end marker, so the card goes back inside its part
         onStart: (e) => { this._dragFrom = { parent: e.item.parentNode as Node, next: e.item.nextSibling }; },
@@ -460,7 +460,7 @@ class HouseholdKanbanCard extends LitElement {
     this._lpCancel();
     const target = ev.target as Element, el = target.closest<HTMLElement>("[data-uid]");
     const uid = el?.dataset.uid;
-    if (!uid || target.closest(NO_OPEN)) return;
+    if (!uid || skipOpen(ev)) return;
     this._lp = { x: ev.clientX, y: ev.clientY, timer: window.setTimeout(() => {
       this._lp = undefined; this._lpFired = true; this._menu = uid; this._menuFor = uid;
     }, LONG_PRESS_MS) };
