@@ -41,12 +41,11 @@ type: custom:household-kanban-card
 columns: [todo, week, today, done]
 done_days: 7
 group: date
-week_end: auto
 parents: [household, shopping]
 people: [person.anna, person.tom]
 ```
 
-The visual editor covers all options.
+The visual editor covers all options. Admins also get a gear button on the card: its Board and Lists & people tabs save these options straight into the dashboard (UI-managed dashboards only). The week ("This week", History) starts on the first weekday from the user's HA profile.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -55,7 +54,6 @@ The visual editor covers all options.
 | `group` | `date` | Default grouping: `date` or `priority`. |
 | `parents` | all | Parent IDs to show. |
 | `people` | all `person.*` | People offered as assignees and filters. |
-| `week_end` | `auto` | `auto` (from locale), `saturday` or `sunday`. |
 
 Unknown column ids make the card show a configuration error. Items sort by due date and time (no time = end of day), then priority, then age.
 
@@ -63,7 +61,7 @@ Unknown column ids make the card show a configuration error. Items sort by due d
 
 Services in the `household_kanban` domain: `create_item`, `update_item`, `set_status`, `delete_item` (see Developer tools → Actions for fields). Priority is `1` high, `2` medium (default), `3` low; `assignee` is a `person.*` entity ID.
 
-WebSocket commands used by the card: `household_kanban/subscribe` (pushes the board on every change) and `household_kanban/history` (`search`, `parent`, `offset`, `limit`).
+WebSocket commands used by the card: `household_kanban/subscribe` (pushes the board on every change) and `household_kanban/history` (`search`, `parent`, `offset`, `limit`). Admin-only commands behind the card's settings dialog (gear button, admins only): `household_kanban/settings`, `household_kanban/settings/update`, `household_kanban/parents/add`, `household_kanban/parents/update` and `household_kanban/parents/remove` (`parent_id` identifies the list for update and remove).
 
 ## Event `household_kanban_day_closed`
 

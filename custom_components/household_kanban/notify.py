@@ -135,6 +135,15 @@ def build_messages(
     return messages
 
 
+def offered_services(hass: HomeAssistant) -> list[str]:
+    """Registered mobile app notify services, sorted."""
+    return sorted(
+        f"notify.{name}"
+        for name in hass.services.async_services_for_domain("notify")
+        if name.startswith("mobile_app_")
+    )
+
+
 def _phone_of(hass: HomeAssistant, person: str) -> str | None:
     """Return the person's mobile_app notify service, or None; never raises."""
     try:

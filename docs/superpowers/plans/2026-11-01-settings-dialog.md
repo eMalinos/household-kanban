@@ -38,8 +38,8 @@ All require admin; unknown entry → error `not_loaded` (as v1).
   Missing options are filled with the v1 defaults (`raise`, `23:59`, `false`, `08:00`, `true`, `[]`).
 - `household_kanban/settings/update` `{end_of_day_mode?, close_time?, notify_enabled?, notify_time?, notify_assignee?, notify_services?}` → `Settings`. It merges into `entry.options` via `hass.config_entries.async_update_entry`, so the existing update listener reschedules. Times must match `^([01]\d|2[0-3]):[0-5]\d$`; services must start with `notify.mobile_app_`. Invalid input → voluptuous error (`invalid_format`).
 - `household_kanban/parents/add` `{name: str (min 1), icon: str, color: one of PARENT_COLORS, collapse: bool}` → `Parent`.
-- `household_kanban/parents/update` `{id: str, name?, icon?, color?, collapse?}` → `Parent`; unknown id → error `not_found`.
-- `household_kanban/parents/remove` `{id: str, target: str}` → `null`; the default parent, `id == target` or unknown ids → error `not_allowed`.
+- `household_kanban/parents/update` `{parent_id: str, name?, icon?, color?, collapse?}` → `Parent`; unknown id → error `not_found`.
+- `household_kanban/parents/remove` `{parent_id: str, target: str}` → `null`; the default parent, `id == target` or unknown ids → error `not_allowed`.
 
 Every parent change already pushes a new board through `SIGNAL_BOARD_CHANGED`.
 
@@ -133,7 +133,7 @@ Depends on: — · Model: opus · Review: high
   - Save with changes on both sides: dashboard save (Task 12) then `updateSettings` with only the changed keys; an error in one keeps the dialog open with that error and does not roll back the other.
   - Lists tab: pencil opens an inline form in the row (name, icon `ha-icon-picker` if defined else text input `mdi:…`, colour chips from `PARENT_COLORS`, collapse switch, Save / Remove). "Remove" asks for the target list (select of the others, default Household) and calls `removeParent`. "Add list" opens the same form empty → `addParent`. These write immediately (not on dialog Save) and the board update arrives by subscription. The default parent shows no Remove.
   - i18n keys: `eod_title`, `eod_keep`, `eod_keep_hint`, `eod_overdue`, `eod_overdue_hint`, `eod_move`, `eod_move_hint`, `eod_raise`, `eod_raise_hint`, `close_at`, `close_hint`, `notify_title`, `notify_on`, `notify_on_hint`, `notify_at`, `notify_at_hint`, `notify_whom`, `notify_assignee`, `notify_assignee_hint`, `event_hint`, `add_list`, `edit_list`, `remove_list`, `move_items_to`, `err_load_settings`, `err_parent`.
-- [ ] **Step 1: Failing tests** `settings-eod.test.ts`: opening tab Eod calls `household_kanban/settings` once; picking `keep` + Save sends `settings/update` with `{end_of_day_mode: "keep"}` only; `stale service is listed` (options `notify.mobile_app_gone` not offered → a checked row with that id); add list form sends `parents/add` with the picked colour; remove asks for target and sends `parents/remove {id, target: "household"}`; default parent has no Remove.
+- [ ] **Step 1: Failing tests** `settings-eod.test.ts`: opening tab Eod calls `household_kanban/settings` once; picking `keep` + Save sends `settings/update` with `{end_of_day_mode: "keep"}` only; `stale service is listed` (options `notify.mobile_app_gone` not offered → a checked row with that id); add list form sends `parents/add` with the picked colour; remove asks for target and sends `parents/remove {parent_id, target: "household"}`; default parent has no Remove.
 - [ ] **Step 2:** `npm test` → FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4:** `npm run lint && npm test && npm run build` → PASS; dev HA: change mode to `overdue` → board shows the Overdue column; add list "Garden" → appears in filters and as `todo.garden`; options flow in HA shows the same values.

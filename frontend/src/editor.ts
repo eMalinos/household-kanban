@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { subscribeBoard, type Hass } from "./api";
-import { DONE_DAYS, normalizeConfig, type CardConfig } from "./config";
+import { DONE_DAYS, mergeConfig, normalizeConfig, toggleIn, type CardConfig } from "./config";
 import type { ColumnId } from "./logic/columns";
 import { keepDefined } from "./register";
 import { retryDelay } from "./logic/retry";
@@ -64,17 +64,9 @@ class HouseholdKanbanCardEditor extends LitElement {
     const next = { ...this._config, ...patch };
     for (const k of ["parents", "people"] as const) if (next[k] === undefined) delete next[k];
     this._config = normalizeConfig(next);
-    const config: Record<string, unknown> = { ...this._raw, ...this._config };
-    for (const k of ["parents", "people"] as const) if (!(k in this._config)) delete config[k];
+    const config = mergeConfig(this._raw, this._config);
     this._raw = config;
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
-  }
-
-  /** Checkbox list where "nothing picked" means "all" (config key left out). */
-  private _toggleIn(key: "parents" | "people", all: string[], id: string, on: boolean): void {
-    const cur = new Set(this._config?.[key] ?? all);
-    if (on) cur.add(id); else cur.delete(id);
-    this._set({ [key]: cur.size === 0 || cur.size === all.length ? undefined : all.filter((x) => cur.has(x)) });
   }
 
   private _checks(key: "parents" | "people", opts: { id: string; name: string }[]) {
@@ -82,7 +74,7 @@ class HouseholdKanbanCardEditor extends LitElement {
     const sel = this._config?.[key];
     return opts.map((o) => html`<label class="row">
       <input type="checkbox" .checked=${!sel || sel.includes(o.id)}
-        @change=${(e: Event) => this._toggleIn(key, all, o.id, (e.target as HTMLInputElement).checked)} />
+        @change=${(e: Event) => this._set({ [key]: toggleIn(this._config?.[key], all, o.id, (e.target as HTMLInputElement).checked) })} />
       <span>${o.name}</span>
     </label>`);
   }
@@ -115,12 +107,6 @@ class HouseholdKanbanCardEditor extends LitElement {
       <select aria-label=${L("group_label")} @change=${(e: Event) => this._set({ group: (e.target as HTMLSelectElement).value as CardConfig["group"] })}>
         <option value="date" ?selected=${cfg.group === "date"}>${L("group_date")}</option>
         <option value="priority" ?selected=${cfg.group === "priority"}>${L("group_priority")}</option>
-      </select>
-      <h3>${L("ed_week_end")}</h3>
-      <select aria-label=${L("ed_week_end")} @change=${(e: Event) => this._set({ week_end: (e.target as HTMLSelectElement).value as CardConfig["week_end"] })}>
-        <option value="auto" ?selected=${cfg.week_end === "auto"}>${L("ed_auto")}</option>
-        <option value="saturday" ?selected=${cfg.week_end === "saturday"}>${L("ed_saturday")}</option>
-        <option value="sunday" ?selected=${cfg.week_end === "sunday"}>${L("ed_sunday")}</option>
       </select>
       <h3>${L("filter_parents")}</h3>
       ${this._checks("parents", this._parents)}

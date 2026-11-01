@@ -7,7 +7,6 @@ export interface CardConfig {
   group?: "date" | "priority";
   parents?: string[];
   people?: string[];
-  week_end?: "auto" | "saturday" | "sunday";
 }
 
 export const COLUMN_IDS: ColumnId[] = ["todo", "later", "week", "today", "overdue", "done"];
@@ -25,9 +24,22 @@ export function normalizeConfig(raw: CardConfig): CardConfig {
     columns: COLUMN_IDS.filter((c) => picked.has(c)),
     done_days: DONE_DAYS.find((d) => d === raw.done_days) ?? 7,
     group: raw.group === "priority" ? "priority" : "date",
-    week_end: raw.week_end === "saturday" || raw.week_end === "sunday" ? raw.week_end : "auto",
   };
   if (raw.parents) out.parents = raw.parents;
   if (raw.people) out.people = raw.people;
+  return out;
+}
+
+/** Checkbox list where "nothing picked" or "everything picked" means all (config key left out). */
+export function toggleIn(list: string[] | undefined, all: string[], id: string, on: boolean): string[] | undefined {
+  const cur = new Set(list ?? all);
+  if (on) cur.add(id); else cur.delete(id);
+  return cur.size === 0 || cur.size === all.length ? undefined : all.filter((x) => cur.has(x));
+}
+
+/** The raw card config with `config` applied: HA-owned and unknown keys stay, filters that are off are dropped. */
+export function mergeConfig(raw: Record<string, unknown>, config: CardConfig): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...raw, ...config };
+  for (const k of ["parents", "people"] as const) if (!(k in config)) delete out[k];
   return out;
 }

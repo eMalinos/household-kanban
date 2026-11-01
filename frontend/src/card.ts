@@ -1,12 +1,16 @@
 import { LitElement, html, nothing, type PropertyValues } from "lit";
 import Sortable from "sortablejs";
-import { createItem, deleteItem, fetchHistory, setStatus, subscribeBoard, updateItem, type Hass } from "./api";
+import {
+  addParent, createItem, deleteItem, fetchDashboard, fetchHistory, getSettings, removeParent, saveDashboard, setStatus,
+  subscribeBoard, updateItem, updateParent, updateSettings, type Hass,
+} from "./api";
 import { addDays, firstWeekday, parseDue, startOfDay, weekRange, ymd } from "./logic/dates";
 import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
 import { retryDelay } from "./logic/retry";
 import { keepDefined } from "./register";
-import { normalizeConfig, type CardConfig } from "./config";
+import { mergeConfig, normalizeConfig, type CardConfig } from "./config";
+import { dashboardUrlPath, replaceCard } from "./logic/lovelace";
 import "./editor";
 import { t, tn, type Key } from "./i18n";
 import { styles } from "./styles";
@@ -19,12 +23,14 @@ import { compareItems } from "./logic/sort";
 import { stackItems } from "./logic/stack";
 import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
+import { NEW_PARENT, renderSettings, settingsPatch, type ParentForm, type SettingsState } from "./ui/settings-dialog";
 import type { Env } from "./ui/item-card";
 
 
 const HISTORY_PAGE = 50;
 const NARROW_PX = 600;
 const LONG_PRESS_MS = 500;
+const GEAR = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
 class HouseholdKanbanCard extends LitElement {
   static properties = {
@@ -42,6 +48,7 @@ class HouseholdKanbanCard extends LitElement {
     _narrow: { state: true },
     _sheet: { state: true },
     _menu: { state: true },
+    _settings: { state: true },
   };
   static styles = styles;
 
@@ -59,6 +66,8 @@ class HouseholdKanbanCard extends LitElement {
   _narrow = false;
   _sheet?: { kind: "col" | "parent"; id: string };
   _menu?: string; // uid of the item whose "Move to…" menu is open
+  _settings?: SettingsState;
+  private _raw: Record<string, unknown> = {}; // exactly what setConfig got: the card's entry in the dashboard config
   private _ro?: ResizeObserver;
   private _sheetReturn?: string;
   private _sheetShown = false;
@@ -91,6 +100,7 @@ class HouseholdKanbanCard extends LitElement {
 
   setConfig(raw: CardConfig): void {
     const config = normalizeConfig(raw);
+    this._raw = raw as unknown as Record<string, unknown>;
     this._config = config;
     this._filter = { ...this._filter, group: config.group ?? "date" };
   }
@@ -199,6 +209,109 @@ class HouseholdKanbanCard extends LitElement {
     this._dlgError = undefined;
     this._returnTo = returnTo;
     this._draft = draft;
+  }
+
+  private _openSettings(): void {
+    if (this._draft || this._hist || this._settings || !this._config) return;
+    this._seq++;
+    this._returnTo = () => this.renderRoot.querySelector<HTMLElement>("header .gear-btn");
+    this._settings = { tab: "board", draft: { ...this._config }, saving: false, narrow: this._narrow };
+  }
+
+  /** Save the changed sides: the board options into the dashboard, then the household settings. One failing does not stop or undo the other. */
+  private async _saveSettings(): Promise<void> {
+    const hass = this.hass, st = this._settings, seq = this._seq;
+    if (!hass || !st || st.saving) return;
+    const live = () => seq === this._seq && !!this._settings; // Cancel/Escape meanwhile: write nothing more
+    const set = (patch: Partial<SettingsState>) => { if (live()) this._settings = { ...this._settings as SettingsState, ...patch }; };
+    set({ saving: true, error: undefined });
+    const config = normalizeConfig(st.draft);
+    let error = JSON.stringify(config) === JSON.stringify(this._config) ? undefined : await this._saveDashboard(hass, config, live);
+    const patch = settingsPatch(st.server, st.eod);
+    if (patch && live()) {
+      try {
+        const server = await updateSettings(hass, patch);
+        set({ server }); // a retry after a dashboard error sends only what is still different
+      } catch (err) {
+        console.warn("household_kanban: settings update failed", err);
+        error ??= "err_settings";
+      }
+    }
+    if (!live()) return;
+    if (error) set({ saving: false, error }); else this._settings = undefined;
+  }
+
+  /** Write the config into this card's entry of the dashboard config; HA reloads the dashboard after the save. */
+  private async _saveDashboard(hass: Hass, config: CardConfig, live: () => boolean): Promise<Key | undefined> {
+    const urlPath = dashboardUrlPath(window.location.pathname);
+    try {
+      const dash = await fetchDashboard(hass, urlPath);
+      if (dash && typeof dash === "object" && "strategy" in dash) return "err_not_editable";
+      const next = mergeConfig(this._raw, config);
+      const r = replaceCard(dash, this._raw, next);
+      if (r.matches !== 1) return r.matches ? "err_card_ambiguous" : "err_card_missing";
+      if (!live()) return undefined;
+      await saveDashboard(hass, urlPath, r.config);
+      this.setConfig(next as unknown as CardConfig); // saved: the card follows even if the dialog is gone
+      return undefined;
+    } catch (err) {
+      console.warn("household_kanban: dashboard save failed", err);
+      const e = err as { code?: string; message?: string } | undefined;
+      const locked = e?.code === "config_not_editable" || e?.code === "config_not_found" || /yaml/i.test(e?.message ?? "");
+      return locked ? "err_not_editable" : "err_settings";
+    }
+  }
+
+  /** Household settings, loaded when the End of day tab first opens. */
+  private async _loadEod(): Promise<void> {
+    const hass = this.hass, st = this._settings, seq = this._seq;
+    if (!hass || !st || st.server || st.eodLoading) return;
+    const set = (patch: Partial<SettingsState>) => { if (seq === this._seq && this._settings) this._settings = { ...this._settings, ...patch }; };
+    set({ eodLoading: true, error: undefined });
+    try {
+      const server = await getSettings(hass);
+      set({ server, eod: server, eodLoading: false });
+    } catch (err) {
+      console.warn("household_kanban: settings load failed", err);
+      set({ eodLoading: false, error: "err_load_settings" });
+    }
+  }
+
+  /** Add, edit or remove a list right away; the new board arrives through the subscription. */
+  private async _parentWrite(write: (hass: Hass) => Promise<unknown>): Promise<void> {
+    const hass = this.hass, form = this._settings?.form, seq = this._seq;
+    if (!hass || !form || form.busy) return;
+    // the same form (by list id) is still open in the same dialog
+    const mine = () => seq === this._seq && this._settings?.form?.id === form.id;
+    const setForm = (f: ParentForm | undefined) => { if (mine() && this._settings) this._settings = { ...this._settings, form: f }; };
+    setForm({ ...form, busy: true, error: false });
+    try {
+      await write(hass);
+      setForm(undefined);
+    } catch (err) {
+      console.warn("household_kanban: list write failed", err);
+      if (mine()) setForm({ ...this._settings?.form as ParentForm, busy: false, error: true });
+    }
+  }
+
+  private _saveParent(): void {
+    const f = this._settings?.form;
+    if (!f) return;
+    const fields = { name: f.name.trim(), icon: f.icon.trim() || NEW_PARENT.icon, color: f.color, collapse: f.collapse };
+    if (!f.id) {
+      const seq = this._seq;
+      void this._parentWrite(async (hass) => {
+        const added = await addParent(hass, fields);
+        const st = this._settings;
+        // an explicit `parents` filter would hide the new list: show it and save it with the dialog
+        if (seq === this._seq && st?.draft.parents && added?.id) this._settings = { ...st, draft: { ...st.draft, parents: [...st.draft.parents, added.id] } };
+      });
+      return;
+    }
+    const orig = this._board?.parents.find((p) => p.id === f.id);
+    const patch = Object.fromEntries(Object.entries(fields).filter(([k, v]) => !orig || orig[k as keyof typeof fields] !== v));
+    if (!Object.keys(patch).length) { if (this._settings) this._settings = { ...this._settings, form: undefined }; return; }
+    void this._parentWrite((hass) => updateParent(hass, f.id as string, patch));
   }
 
   private _openHistory(returnTo: string): void {
@@ -418,7 +531,7 @@ class HouseholdKanbanCard extends LitElement {
     if (board.end_of_day_mode === "overdue") enabled.add("overdue");
     const ctx: Ctx = {
       now, enabled, mode: board.end_of_day_mode, doneDays: cfg.done_days ?? 7,
-      week: weekRange(now, firstWeekday(cfg.week_end, hass.locale)),
+      week: weekRange(now, firstWeekday(hass.locale)),
     };
     this._ctx = ctx;
     const env: Env = {
@@ -440,6 +553,8 @@ class HouseholdKanbanCard extends LitElement {
       ${this._notice ? html`<div class="notice" role="alert">${t(lang, this._notice)}</div>` : nothing}
       <header>
         <div class="titles"><h1>${t(lang, "title")}</h1><div class="summary">${this._summary(scoped, ctx, lang)}</div></div>
+        ${hass.user?.is_admin ? html`<button class="round-btn gear-btn" type="button" aria-label=${t(lang, "settings")} title=${t(lang, "settings")}
+          @click=${() => this._openSettings()}>${GEAR}</button>` : nothing}
         <button class="pill-btn hist-btn" type="button" @click=${() => this._openHistory("header .hist-btn")}>${t(lang, "history")}</button>
         <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, "header .new")}>+ ${t(lang, "new_note")}</button>
       </header>
@@ -458,12 +573,29 @@ class HouseholdKanbanCard extends LitElement {
         onHistory: () => this._openHistory(".col[data-col=\"done\"] .note-btn"),
       }, env)}`}
       ${this._hist ? renderHistory(this._hist, {
-        hass, lang, now, parents, firstDay: firstWeekday(cfg.week_end, hass.locale),
+        hass, lang, now, parents, firstDay: firstWeekday(hass.locale),
         onSearch: (search) => this._histFilter({ search }, 300),
         onParent: (parent) => this._histFilter({ parent }, 0),
         onReopen: (item) => this._reopen(item.uid),
         onMore: () => void this._loadHistory(false),
         onClose: () => this._closeHistory(),
+      }) : nothing}
+      ${this._settings ? renderSettings({ ...this._settings, narrow: this._narrow }, {
+        hass, lang, parents: board.parents, people: Object.keys(hass.states).filter((id) => id.startsWith("person.")),
+        onTab: (tab) => {
+          if (this._settings) this._settings = { ...this._settings, tab };
+          if (tab === "eod") void this._loadEod();
+        },
+        onChange: (patch) => { if (this._settings) this._settings = { ...this._settings, draft: { ...this._settings.draft, ...patch }, error: undefined }; },
+        onEod: (patch) => { const s = this._settings; if (s?.eod) this._settings = { ...s, eod: { ...s.eod, ...patch }, error: undefined }; },
+        onForm: (form) => { if (this._settings) this._settings = { ...this._settings, form }; },
+        onFormSave: () => this._saveParent(),
+        onFormRemove: () => {
+          const f = this._settings?.form;
+          if (f?.id && f.target) void this._parentWrite((hass) => removeParent(hass, f.id as string, f.target as string));
+        },
+        onSave: () => void this._saveSettings(),
+        onClose: () => { this._seq++; this._settings = undefined; },
       }) : nothing}
       ${this._draft ? renderDialog(this._draft, {
         hass, lang, now, parents, people, busy: this._busy, error: this._dlgError,

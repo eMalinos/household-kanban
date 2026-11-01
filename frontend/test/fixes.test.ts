@@ -25,12 +25,11 @@ test("czech plurals", () => {
 });
 
 test("firstWeekday mapping", () => {
-  expect(firstWeekday("saturday", { first_weekday: "monday" })).toBe(0);
-  expect(firstWeekday("sunday", undefined)).toBe(1);
-  expect(firstWeekday("auto", { first_weekday: "saturday" })).toBe(6);
-  expect(firstWeekday(undefined, { first_weekday: "sunday" })).toBe(0);
-  expect(firstWeekday(undefined, { first_weekday: "language", language: "en-US" })).toBe(0);
-  expect(firstWeekday(undefined, { first_weekday: "language", language: "cs" })).toBe(1);
+  expect(firstWeekday({ first_weekday: "monday" })).toBe(1);
+  expect(firstWeekday({ first_weekday: "saturday" })).toBe(6);
+  expect(firstWeekday({ first_weekday: "sunday" })).toBe(0);
+  expect(firstWeekday({ first_weekday: "language", language: "en-US" })).toBe(0);
+  expect(firstWeekday({ first_weekday: "language", language: "cs" })).toBe(1);
 });
 
 test("date-only sorts after 23:30 on a 25h DST day (Europe/Prague 2026-10-25)", () => {
