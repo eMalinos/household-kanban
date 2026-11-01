@@ -298,7 +298,16 @@ class HouseholdKanbanCard extends LitElement {
     const f = this._settings?.form;
     if (!f) return;
     const fields = { name: f.name.trim(), icon: f.icon.trim() || NEW_PARENT.icon, color: f.color, collapse: f.collapse };
-    if (!f.id) { void this._parentWrite((hass) => addParent(hass, fields)); return; }
+    if (!f.id) {
+      const seq = this._seq;
+      void this._parentWrite(async (hass) => {
+        const added = await addParent(hass, fields);
+        const st = this._settings;
+        // an explicit `parents` filter would hide the new list: show it and save it with the dialog
+        if (seq === this._seq && st?.draft.parents && added?.id) this._settings = { ...st, draft: { ...st.draft, parents: [...st.draft.parents, added.id] } };
+      });
+      return;
+    }
     const orig = this._board?.parents.find((p) => p.id === f.id);
     const patch = Object.fromEntries(Object.entries(fields).filter(([k, v]) => !orig || orig[k as keyof typeof fields] !== v));
     if (!Object.keys(patch).length) { if (this._settings) this._settings = { ...this._settings, form: undefined }; return; }

@@ -54,6 +54,19 @@ async def test_settings_update_rejects_bad_time(hass, entry, hass_ws_client):
     assert "close_time" not in entry.options
 
 
+async def test_settings_update_rejects_trailing_newline(hass, entry, hass_ws_client):
+    client = await hass_ws_client(hass)
+    for field in ("notify_time", "close_time"):
+        msg = await _call(client, "settings/update", **{field: "08:00\n"})
+        assert msg["error"]["code"] == "invalid_format"
+        assert field not in entry.options
+
+
+async def test_parents_reject_blank_name(hass, entry, hass_ws_client):
+    msg = await _call(await hass_ws_client(hass), "parents/add", name="   ")
+    assert msg["error"]["code"] == "invalid_format"
+
+
 async def test_settings_rejects_bad_service_and_mode(hass, entry, hass_ws_client):
     client = await hass_ws_client(hass)
     msg = await _call(client, "settings/update", notify_services=["notify.other"])

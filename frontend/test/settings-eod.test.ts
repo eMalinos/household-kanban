@@ -19,7 +19,7 @@ const $ = (sel: string) => (card.shadowRoot as ShadowRoot).querySelector(sel) as
 const click = (sel: string) => ($(sel) as HTMLElement).click();
 const of = (type: string) => sent.filter((m) => m.type === type);
 
-async function make() {
+async function make(raw: any = RAW) {
   (window as any).happyDOM?.setURL("http://localhost/kanban-dev/ukoly");
   card = document.createElement("household-kanban-card");
   card.hass = {
@@ -29,17 +29,18 @@ async function make() {
       sendMessagePromise: async (msg: any) => {
         sent.push(msg);
         if (fail.has(msg.type)) throw { code: "unknown_error", message: "boom" };
-        if (msg.type === "lovelace/config") return { views: [{ cards: [structuredClone(RAW)] }] };
+        if (msg.type === "lovelace/config") return { views: [{ cards: [structuredClone(raw)] }] };
         if (msg.type === "lovelace/config/save") return null;
         if (msg.type === "household_kanban/settings") return structuredClone(SETTINGS);
         if (msg.type === "household_kanban/settings/update") return { ...structuredClone(SETTINGS), ...msg };
+        if (msg.type === "household_kanban/parents/add") return { id: "garden_2" };
         if (msg.type.startsWith("household_kanban/parents/")) return null;
         throw new Error(`unexpected ${msg.type}`);
       },
     },
     callService: async () => undefined,
   };
-  card.setConfig(RAW);
+  card.setConfig(raw);
   document.body.append(card);
   await settle();
   click("header .gear-btn");
@@ -150,6 +151,23 @@ describe("list editing", () => {
       { type: "household_kanban/parents/add", name: "Garden 2", icon: "mdi:format-list-checks", color: "green", collapse: false },
     ]);
     expect($(".kb-settings .parent-form")).toBeNull();
+  });
+
+  test("a list added under an explicit parents filter is appended to the draft and saved", async () => {
+    await make({ ...RAW, parents: ["household"] });
+    await tab("lists");
+    click(".kb-settings .add-list");
+    await settle();
+    const name = $(".kb-settings .parent-form input[name=name]") as HTMLInputElement;
+    name.value = "Garden 2";
+    name.dispatchEvent(new Event("input"));
+    await settle();
+    click(".kb-settings .parent-form .save-parent");
+    await settle();
+    click(".kb-settings .primary-btn:not(.save-parent)");
+    await settle();
+    const saved = of("lovelace/config/save")[0];
+    expect(saved.config.views[0].cards[0].parents).toEqual(["household", "garden_2"]);
   });
 
   test("pencil edits a list via parents/update", async () => {

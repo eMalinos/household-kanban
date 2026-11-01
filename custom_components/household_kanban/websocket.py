@@ -125,9 +125,9 @@ def ws_history(hass: HomeAssistant, connection, msg: dict) -> None:
     )
 
 
-TIME = vol.All(str, vol.Match(r"^([01]\d|2[0-3]):[0-5]\d$"))
+TIME = vol.All(str, vol.Match(r"^([01]\d|2[0-3]):[0-5]\d\Z"))
 SERVICE = vol.All(str, vol.Match(r"^notify\.mobile_app_.+"))
-NAME = vol.All(str, vol.Length(min=1))
+NAME = vol.All(str, vol.Strip, vol.Length(min=1))
 
 
 def _settings(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
