@@ -46,12 +46,25 @@ test("a define that throws is logged once per element (card + editor), not repea
   expect(warn.mock.calls.filter((c) => String(c[0]).includes("household_kanban"))).toHaveLength(2);
 });
 
-test("assigning a new registry defines the card synchronously", async () => {
+test("assigning a new registry defines the card and the editor synchronously", async () => {
   await import("../src/card");
   const fresh = fakeRegistry();
   (window as unknown as { customElements: unknown }).customElements = fresh;
   expect(fresh.get(NAME)).toBeDefined();
+  expect(fresh.get(`${NAME}-editor`)).toBeDefined();
   expect(window.customElements).toBe(fresh);
+});
+
+test("assigning a registry never throws because of us, warns once per name", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  await import("../src/card");
+  const broken = { get: () => { throw new Error("broken get"); }, define: () => undefined, whenDefined: async () => undefined };
+  for (let i = 0; i < 3; i++) {
+    expect(() => { (window as unknown as { customElements: unknown }).customElements = broken; }).not.toThrow();
+  }
+  expect(window.customElements).toBe(broken);
+  vi.advanceTimersByTime(2000);
+  expect(warn.mock.calls.filter((c) => String(c[0]).includes("household_kanban"))).toHaveLength(2);
 });
 
 test("a late define asks already-rendered error cards to rebuild", async () => {

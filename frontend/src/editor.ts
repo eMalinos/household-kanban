@@ -3,6 +3,7 @@ import { subscribeBoard, type Hass } from "./api";
 import { DONE_DAYS, normalizeConfig, type CardConfig } from "./config";
 import type { ColumnId } from "./logic/columns";
 import { keepDefined } from "./register";
+import { retryDelay } from "./logic/retry";
 import { t, type Key } from "./i18n";
 import type { Parent } from "./types";
 
@@ -19,8 +20,12 @@ class HouseholdKanbanCardEditor extends LitElement {
   _config?: CardConfig;
   _parents: Parent[] = [];
   private _unsub?: () => void;
+  private _raw: Record<string, unknown> = {}; // keeps HA-owned keys (grid_options, visibility, ...)
+  private _retry?: number;
+  private _attempts = 0;
 
   setConfig(raw: CardConfig): void {
+    this._raw = { ...raw };
     try { this._config = normalizeConfig(raw); } catch { this._config = normalizeConfig({ type: raw.type }); }
   }
 
@@ -32,17 +37,23 @@ class HouseholdKanbanCardEditor extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.clearTimeout(this._retry);
+    this._retry = undefined;
     this._unsub?.();
     this._unsub = undefined;
   }
 
   private _subbing = false;
+  /** Subscribe once; on failure retry on the card's backoff timer, not on every update. */
   private _sub(): void {
-    if (this._unsub || this._subbing || !this.hass) return;
+    if (this._unsub || this._subbing || this._retry !== undefined || !this.hass || !this.isConnected) return;
     this._subbing = true;
     subscribeBoard(this.hass, (b) => { this._parents = b.parents; })
-      .then((u) => { if (this.isConnected) this._unsub = u; else u(); })
-      .catch((e) => console.warn("household_kanban: editor subscribe failed", e))
+      .then((u) => { this._attempts = 0; if (this.isConnected) this._unsub = u; else u(); })
+      .catch((e) => {
+        console.warn("household_kanban: editor subscribe failed", e);
+        if (this.isConnected) this._retry = window.setTimeout(() => { this._retry = undefined; this._sub(); }, retryDelay(this._attempts++));
+      })
       .finally(() => { this._subbing = false; });
   }
 
@@ -53,7 +64,10 @@ class HouseholdKanbanCardEditor extends LitElement {
     const next = { ...this._config, ...patch };
     for (const k of ["parents", "people"] as const) if (next[k] === undefined) delete next[k];
     this._config = normalizeConfig(next);
-    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+    const config: Record<string, unknown> = { ...this._raw, ...this._config };
+    for (const k of ["parents", "people"] as const) if (!(k in this._config)) delete config[k];
+    this._raw = config;
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
   }
 
   /** Checkbox list where "nothing picked" means "all" (config key left out). */

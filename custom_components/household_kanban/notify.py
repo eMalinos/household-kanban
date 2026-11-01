@@ -96,7 +96,7 @@ def build_messages(
     groups.append((SERVICES_RECIPIENT, selected, shared))
 
     action = MOVE_TODAY if run.mode in ("keep", "overdue") else DONE
-    title_key = "moved" if run.mode == "move" else "overdue"
+    title_key = "moved" if run.mode in ("move", "raise") else "overdue"
     messages = []
     for recipient, services, items in groups:
         if not items:

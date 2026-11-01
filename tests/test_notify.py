@@ -74,7 +74,7 @@ def test_notify_assignee_off_sends_all_to_services():
         ("keep", "move_today", "are overdue"),
         ("overdue", "move_today", "are overdue"),
         ("move", "done", "moved to today"),
-        ("raise", "done", "are overdue"),
+        ("raise", "done", "moved to today"),
     ],
 )
 def test_actions_by_mode(mode, action, title):
@@ -360,6 +360,17 @@ async def test_no_night_catch_up_before_next_notify(hass, hass_storage, freezer)
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert len(calls) == 1
+
+
+async def test_no_stale_catch_up_late_in_the_day(hass, hass_storage, freezer):
+    # HA back at 23:00, notify 08:00: 15 h late, the summary is stale.
+    calls = async_mock_service(hass, "notify", "mobile_app_shared")
+    freezer.move_to(datetime(2026, 11, 2, 23, 0, tzinfo=PRAGUE))
+    entry = await _setup(
+        hass, hass_storage, OPTS | {"notify_enabled": True}, [_run("move", [_it("a")])]
+    )
+    assert calls == []
+    assert entry.runtime_data.runs["2026-11-01"].notified
 
 
 async def test_options_service_list(hass, entry):

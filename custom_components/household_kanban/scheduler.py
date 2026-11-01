@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 from datetime import date, datetime, time, timedelta
 
@@ -25,6 +26,8 @@ from .notify import async_handle_action, async_send_latest
 from .rollover import archive_due, close_day
 from .store import RunSummary
 
+_LOGGER = logging.getLogger(__name__)
+CATCH_UP_LIMIT = timedelta(hours=12)
 EVENT_ITEM_KEYS = ("uid", "summary", "parent", "assignee", "priority", "due")
 
 
@@ -98,7 +101,8 @@ async def async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry) -> None
 
     async def catch_up_notify() -> None:
         # A notify time that passed while HA was down (or was just changed).
-        # Only when the latest unsent run closed before the last notify moment.
+        # Only when the latest unsent run closed before the last notify moment,
+        # and at most 12 h late; a staler summary is only marked as notified.
         unsent = [r for r in entry.runtime_data.runs.values() if not r.notified]
         if not unsent:
             return
@@ -108,8 +112,14 @@ async def async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry) -> None
         if last_notify > now:
             last_notify -= timedelta(days=1)
         closed_on = unsent[-1].day + timedelta(days=close < time(12))
-        if last_notify > datetime.combine(closed_on, close, tzinfo=tz):
-            await notify_tick()
+        if last_notify <= datetime.combine(closed_on, close, tzinfo=tz):
+            return
+        if now - last_notify > CATCH_UP_LIMIT:
+            for run in unsent:
+                run.notified = True
+            await entry.runtime_data.async_save_runs()
+            return
+        await notify_tick()
 
     def disarm() -> None:
         while unsubs:
@@ -138,8 +148,11 @@ async def async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry) -> None
     async def on_action(event: Event) -> None:
         await async_handle_action(hass, entry, event)
 
-    await async_close_due(hass, entry)
-    await catch_up_notify()
+    try:  # one bad stored item must not fail the setup
+        await async_close_due(hass, entry)
+        await catch_up_notify()
+    except Exception:
+        _LOGGER.exception("End-of-day catch-up failed")
     arm()
     entry.async_on_unload(disarm)
     entry.async_on_unload(entry.add_update_listener(options_updated))

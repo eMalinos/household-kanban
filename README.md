@@ -26,7 +26,7 @@ Settings → Devices & services → Household Kanban → Configure.
   - `keep`: nothing changes.
   - `overdue`: items are shown in an extra *Overdue* column.
   - `move`: the due moves to the next day, same time.
-  - `raise` (default): the priority goes up one step (the due stays).
+  - `raise` (default): like `move`, and the priority goes up one step per day (Low → Medium → High).
 
   Close time defaults to `23:59`. A close missed while HA was offline runs once per missed day on startup.
 - **Notifications** (off by default): a morning summary of what the end of day changed, with action buttons. Settings: on/off, time (default `08:00`), notify assignees on their own phone, and the notify services that receive unassigned items (and items of people without a phone).

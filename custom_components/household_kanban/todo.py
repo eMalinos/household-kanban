@@ -124,8 +124,13 @@ class KanbanTodoList(TodoListEntity):
         await self._store.async_update_item(item.uid, **fields)
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
+        """Archive completed items (history never deletes); delete open ones."""
+        done = [u for u in uids if self._store.items[u].status == STATUS_COMPLETED]
+        if done:
+            await self._store.async_archive(done)
         for uid in uids:
-            await self._store.async_delete_item(uid)
+            if uid not in done:
+                await self._store.async_delete_item(uid)
 
     async def async_move_todo_item(
         self, uid: str, previous_uid: str | None = None

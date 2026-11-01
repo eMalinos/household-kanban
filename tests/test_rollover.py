@@ -47,8 +47,27 @@ def test_raise_steps_priority():
         _item("high", due="2026-11-01", priority=1),
     ]
     result = close_day(items, DAY, "raise", NOW)
-    assert result.changes == {"low": {"priority": 2, "raised": True}}
+    assert result.changes["low"]["priority"] == 2 and result.changes["low"]["raised"]
+    assert "priority" not in result.changes["high"]  # 1 stays 1
+    assert "raised" not in result.changes["high"]
     assert result.affected == ["low", "high"]
+
+
+def test_raise_moves_and_raises():
+    items = [
+        _item("dt", due="2026-11-01T10:00:00+01:00", priority=3, moved=1),
+        _item("d", due="2026-10-30", priority=1),
+    ]
+    result = close_day(items, DAY, "raise", NOW)
+    assert result.changes == {
+        "dt": {
+            "due": "2026-11-02T10:00:00+01:00",
+            "moved": 2,
+            "priority": 2,
+            "raised": True,
+        },
+        "d": {"due": "2026-11-02", "moved": 1},
+    }
 
 
 def test_items_without_due_untouched():

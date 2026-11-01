@@ -18,6 +18,26 @@ function rebuildErrorCards(name: string): void {
   walk(document);
 }
 
+/** One per keepDefined() call; the single window.customElements accessor runs them all. */
+const ensurers: ((reg: CustomElementRegistry) => void)[] = [];
+
+/** Install the accessor once, so every registered name follows a registry swap. */
+function watchRegistry(): void {
+  try {
+    const d = Object.getOwnPropertyDescriptor(window, "customElements");
+    if (d && !d.configurable) return; // polling still covers it
+    let cur = window.customElements;
+    Object.defineProperty(window, "customElements", {
+      configurable: true, enumerable: d?.enumerable ?? true,
+      get: () => cur,
+      set: (v: CustomElementRegistry) => {
+        cur = v;
+        for (const ensure of ensurers) ensure(v); // ensure never throws
+      },
+    });
+  } catch { /* polling still covers it */ }
+}
+
 /**
  * HA swaps `window.customElements` for a scoped-registry polyfill during boot, after this module (loaded
  * early via extra_js_url) defined the element on the original registry. So: define now, define on any
@@ -27,29 +47,18 @@ function rebuildErrorCards(name: string): void {
 export function keepDefined(name: string, ctor: CustomElementConstructor): void {
   let late = false, warned = false;
   const ensure = (reg: CustomElementRegistry = window.customElements): void => {
-    if (reg.get(name)) return;
     try {
+      if (reg.get(name)) return;
       reg.define(name, ctor);
+      if (late) rebuildErrorCards(name);
     } catch (e) {
       if (!warned) { warned = true; console.warn("household_kanban: could not register the card", e); }
-      return;
     }
-    if (late) rebuildErrorCards(name);
   };
   ensure();
   late = true;
-
-  try {
-    const d = Object.getOwnPropertyDescriptor(window, "customElements");
-    if (!d || d.configurable) {
-      let cur = window.customElements;
-      Object.defineProperty(window, "customElements", {
-        configurable: true, enumerable: d?.enumerable ?? true,
-        get: () => cur,
-        set: (v: CustomElementRegistry) => { cur = v; ensure(v); },
-      });
-    }
-  } catch { /* polling below still covers it */ }
+  if (!ensurers.length) watchRegistry();
+  ensurers.push(ensure);
 
   document.addEventListener("DOMContentLoaded", () => ensure());
   window.addEventListener("load", () => ensure());

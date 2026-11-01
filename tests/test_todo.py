@@ -94,3 +94,31 @@ async def test_items_sorted(hass, entry):
         "no due",
         "done",
     ]
+
+
+async def test_remove_completed_archives(hass, entry, hass_ws_client):
+    store = entry.runtime_data
+    done = await store.async_add_item("household", "Done", status="completed")
+    await store.async_add_item("household", "Open")
+    await hass.services.async_call(
+        TODO_DOMAIN,
+        "remove_completed_items",
+        {},
+        target={"entity_id": ENTITY},
+        blocking=True,
+    )
+    assert [i["summary"] for i in await _items(hass)] == ["Open"]
+    assert done.uid in store.archive
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": "household_kanban/history", "offset": 0, "limit": 50}
+    )
+    msg = await client.receive_json()
+    assert [i["uid"] for i in msg["result"]["items"]] == [done.uid]
+
+
+async def test_entity_delete_open_item_deletes(hass, entry):
+    store = entry.runtime_data
+    item = await store.async_add_item("household", "Open")
+    await _call(hass, "remove_item", {"item": [item.uid]})
+    assert store.items == {} and store.archive == {}

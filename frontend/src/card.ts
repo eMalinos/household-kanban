@@ -97,6 +97,9 @@ class HouseholdKanbanCard extends LitElement {
 
   getCardSize(): number { return 8; }
 
+  /** Sections view: the board needs the full width. */
+  getGridOptions(): { columns: "full"; rows: number; min_rows: number } { return { columns: "full", rows: 8, min_rows: 4 }; }
+
   connectedCallback(): void {
     super.connectedCallback();
     this._subscribe();

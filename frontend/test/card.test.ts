@@ -214,3 +214,7 @@ describe("opening and the dialog", () => {
     expect(card._busy).toBe(false);
   });
 });
+
+test("sections view gives the board the full width", () => {
+  expect(card.getGridOptions()).toMatchObject({ columns: "full" });
+});

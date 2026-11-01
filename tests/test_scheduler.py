@@ -67,7 +67,9 @@ async def test_missed_close_runs_on_startup(hass, hass_storage, freezer):
         ]
         store = entry.runtime_data
         assert store.last_close == date(2026, 11, 1)
-        assert store.items["bins"].priority == 1 and store.items["bins"].raised
+        bins = store.items["bins"]
+        assert bins.priority == 1 and bins.raised
+        assert bins.due == "2026-11-02" and bins.moved == 2
         assert [e.data["day"] for e in events] == ["2026-10-31", "2026-11-01"]
         assert events[0].data["mode"] == "raise"
         assert events[0].data["items"] == [
@@ -77,7 +79,7 @@ async def test_missed_close_runs_on_startup(hass, hass_storage, freezer):
                 "parent": "household",
                 "assignee": None,
                 "priority": 2,
-                "due": "2026-10-31",
+                "due": "2026-11-01",
             }
         ]
         assert [r.day for r in store.runs.values()] == [
@@ -237,3 +239,15 @@ async def test_run_and_event_items_are_separate_lists(hass, hass_storage, freeze
     [run] = entry.runtime_data.runs.values()
     assert run.items == events[0].data["items"]
     assert run.items is not events[0].data["items"]
+
+
+async def test_setup_survives_failing_catch_up(hass, hass_storage, freezer, caplog):
+    freezer.move_to(datetime(2026, 11, 1, 23, 59, 30, tzinfo=PRAGUE))
+    _stored(hass_storage, last_close="2026-10-30")
+    with patch(
+        "custom_components.household_kanban.scheduler.close_day",
+        side_effect=ValueError("bad item"),
+    ):
+        entry = await _setup(hass)
+    assert entry.state.name == "LOADED"
+    assert "bad item" in caplog.text

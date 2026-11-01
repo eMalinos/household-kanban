@@ -50,7 +50,7 @@ def close_day(
     """Close `day`: open items due on or before it are affected.
 
     keep/overdue change nothing; move sets due to day + 1 (same local time)
-    and counts moved; raise steps priority up one (1 stays 1).
+    and counts moved; raise moves too and steps priority up one (1 stays 1).
     """
     changes: dict[str, dict] = {}
     affected: list[str] = []
@@ -60,13 +60,13 @@ def close_day(
         if _due_date(item.due, now) > day:
             continue
         affected.append(item.uid)
-        if mode == "move":
+        if mode in ("move", "raise"):
             changes[item.uid] = {
                 "due": _next_day(item.due, day, now),
                 "moved": item.moved + 1,
             }
-        elif mode == "raise" and item.priority > 1:
-            changes[item.uid] = {"priority": item.priority - 1, "raised": True}
+        if mode == "raise" and item.priority > 1:
+            changes[item.uid] |= {"priority": item.priority - 1, "raised": True}
     return CloseResult(changes, affected, run_id=day.isoformat())
 
 

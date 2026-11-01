@@ -1,6 +1,7 @@
 """Service tests."""
 
 import pytest
+import voluptuous as vol
 from homeassistant.components.todo import DOMAIN as TODO_DOMAIN
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
@@ -209,3 +210,17 @@ async def test_failing_listener_does_not_block_others(hass, entry):
     store.add_listener(lambda: calls.append(1))
     await store.async_add_item("household", "x")
     assert calls == [1]
+
+
+async def test_blank_summary_rejected(hass, entry):
+    item = await entry.runtime_data.async_add_item("household", "x")
+    for service, data in (
+        ("create_item", {"summary": "  "}),
+        ("create_item", {"summary": ""}),
+        ("update_item", {"uid": item.uid, "summary": " "}),
+    ):
+        with pytest.raises(vol.Invalid):
+            await _svc(hass, service, data)
+    assert [i.summary for i in entry.runtime_data.items.values()] == ["x"]
+    await _svc(hass, "create_item", {"summary": "  Bins "})
+    assert sorted(i.summary for i in entry.runtime_data.items.values()) == ["Bins", "x"]

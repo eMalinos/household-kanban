@@ -25,15 +25,16 @@ _PRIORITY = vol.All(
     vol.Coerce(int), vol.In([PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW])
 )
 _OPTIONAL_STR = vol.Any(None, cv.string)
+_SUMMARY = vol.All(cv.string, vol.Strip, vol.Length(min=1))
 _META = {
-    vol.Optional("summary"): cv.string,
+    vol.Optional("summary"): _SUMMARY,
     vol.Optional("description"): cv.string,
     vol.Optional("due"): _OPTIONAL_STR,
     vol.Optional("priority"): _PRIORITY,
     vol.Optional("assignee"): _OPTIONAL_STR,
     vol.Optional("parent"): cv.string,
 }
-CREATE_SCHEMA = vol.Schema(_META | {vol.Required("summary"): cv.string})
+CREATE_SCHEMA = vol.Schema(_META | {vol.Required("summary"): _SUMMARY})
 UPDATE_SCHEMA = vol.Schema(_META | {vol.Required("uid"): cv.string})
 STATUS_SCHEMA = vol.Schema(
     {
