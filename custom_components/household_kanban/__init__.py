@@ -9,6 +9,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+from .frontend import async_register_card
 from .scheduler import async_setup_scheduler
 from .services import async_setup_services
 from .store import KanbanStore
@@ -23,6 +24,7 @@ type KanbanConfigEntry = ConfigEntry[KanbanStore]
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_setup_services(hass)
     async_setup_websocket(hass)
+    await async_register_card(hass)
     return True
 
 
