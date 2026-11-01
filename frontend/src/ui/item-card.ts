@@ -101,7 +101,7 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
       ${avatar(env.hass, item.assignee)}
     </div>
     <div class="row top">
-      ${p.total ? nothing : checkButton(item, env)}
+      ${p.total && !done ? nothing : checkButton(item, env)}
       <button class="title" type="button">${item.summary}</button>
       ${p.total ? html`<span class="pill c-green cl-progress">${p.done}/${p.total}</span>` : nothing}
     </div>
@@ -123,7 +123,7 @@ function renderLines(item: Item, note: string, lines: Line[], env: Env): Templat
   const expanded = env.expanded.has(item.uid);
   const shown = expanded ? lines : lines.slice(0, Math.min(open, SHOWN));
   const hidden = open - shown.filter((l) => !l.done).length;
-  const more = expanded ? L("cl_hide_ticked")
+  const more = expanded ? L(p.done ? "cl_hide_ticked" : "cl_show_less")
     : `+ ${[hidden ? tn(env.lang, "cl_more", hidden) : "", p.done ? tn(env.lang, "cl_ticked", p.done) : ""].filter(Boolean).join(" · ")}`;
   return html`<div class="cl-bar"><span style="width:${Math.round((p.done / p.total) * 100)}%"></span></div>
     <div class="cl">

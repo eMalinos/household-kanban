@@ -31,7 +31,9 @@ export function applyFormat(value: string, start: number, end: number, kind: For
   const nl = value.indexOf("\n", end);
   const to = nl < 0 ? value.length : nl;
   const rows = value.slice(from, to).split("\n");
-  const off = rows.every((r) => r.startsWith("- "));
-  const block = rows.map((r) => (off ? r.slice(2) : `- ${r}`)).join("\n");
+  // blank lines in a multi-line selection stay as they are; a lone empty line still starts a list
+  const skip = (r: string) => rows.length > 1 && !r.trim();
+  const off = rows.every((r) => skip(r) || r.startsWith("- "));
+  const block = rows.map((r) => (skip(r) ? r : off ? r.slice(2) : r.startsWith("- ") ? r : `- ${r}`)).join("\n");
   return { value: value.slice(0, from) + block + value.slice(to), start: from, end: from + block.length };
 }

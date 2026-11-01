@@ -28,6 +28,11 @@ def test_round_trip_keeps_foreign_text():
     assert join(*split(once)) == once
 
 
+def test_line_separator_stays_inside_an_item():
+    assert split("- [ ] a b\n- [x] c") == ("", [(False, "a b"), (True, "c")])
+    assert split("- [ ] a b")[1] == [(False, "a b")]
+
+
 def test_append_before_first_checked():
     assert append("n\n\n- [ ] a\n- [x] b", "c") == "n\n\n- [ ] a\n- [ ] c\n- [x] b"
 

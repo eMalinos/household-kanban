@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-_LINE = re.compile(r"^- \[( |x|X)\] (.+)$")
+_LINE = re.compile(r"^- \[( |x|X)\] ([^\n]+)$")
 
 
 def split(description: str) -> tuple[str, list[tuple[bool, str]]]:

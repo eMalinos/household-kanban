@@ -18,6 +18,7 @@ export interface SettingsState {
   server?: Settings; // household settings as last loaded or saved
   eod?: Settings; // their draft, written on Save
   eodLoading?: boolean;
+  eodError?: boolean; // loading the household settings failed; shown in the End of day tab
   form?: ParentForm; // the open add/edit list form; it writes at once, not on Save
 }
 
@@ -48,6 +49,7 @@ export interface SettingsEvents {
   onSave: () => void;
   onClose: () => void;
   onEod: (patch: SettingsPatch) => void;
+  onRetry: () => void;
   onForm: (form: ParentForm | undefined) => void;
   onFormSave: () => void;
   onFormRemove: () => void;
@@ -59,6 +61,29 @@ const TABS: [SettingsTab, Key][] = [["board", "tab_board"], ["eod", "tab_eod"], 
 const SCREEN = "M3 5h18v12H3zM8 21h8M12 17v4";
 const HOUSE = "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z";
 const icon = (d: string, size = 16) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${d}></path></svg>`;
+
+/** Roving tabindex: the checked item (or the first when none is) is the one Tab stops on. */
+const rove = (checked: boolean[], i: number): number => ((checked.includes(true) ? checked[i] : i === 0) ? 0 : -1);
+
+/** Arrow keys, Home and End move between the tabs or radios of a group (and pick them). */
+function arrows(ev: KeyboardEvent): void {
+  const step: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+  const items = [...(ev.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="radio"],[role="tab"]')];
+  const i = items.indexOf(ev.target as HTMLElement);
+  if (i < 0) return;
+  const to = ev.key === "Home" ? 0 : ev.key === "End" ? items.length - 1 : ev.key in step ? (i + step[ev.key] + items.length) % items.length : -1;
+  if (to < 0) return;
+  ev.preventDefault();
+  items[to].focus();
+  items[to].click();
+}
+
+/** An open list form with edits that are not written yet. */
+export function formDirty(f: ParentForm | undefined, parents: Parent[]): boolean {
+  if (!f) return false;
+  const orig = f.id === undefined ? NEW_PARENT : parents.find((p) => p.id === f.id);
+  return f.target !== undefined || !orig || (["name", "icon", "color", "checklist"] as const).some((k) => f[k] !== orig[k]);
+}
 
 function toggle(on: boolean, label: string, onClick: () => void, data: Record<string, string> = {}, locked = false): TemplateResult {
   return html`<button class="switch" type="button" role="switch" aria-checked=${on} aria-label=${label} ?disabled=${locked}
@@ -77,8 +102,8 @@ function boardTab(d: CardConfig, e: SettingsEvents): TemplateResult {
   const cols = d.columns ?? [];
   const seg = <T>(label: string, opts: [T, string][], cur: T, pick: (v: T) => void) => html`
     <div class="set-line"><span class="grow">${label}</span>
-      <div class="seg" role="radiogroup" aria-label=${label}>
-        ${opts.map(([v, text]) => html`<button type="button" role="radio" aria-checked=${v === cur} @click=${() => pick(v)}>${text}</button>`)}
+      <div class="seg" role="radiogroup" aria-label=${label} @keydown=${arrows}>
+        ${opts.map(([v, text], i) => html`<button type="button" role="radio" aria-checked=${v === cur} tabindex=${rove(opts.map(([x]) => x === cur), i)} @click=${() => pick(v)}>${text}</button>`)}
       </div>
     </div>`;
   const sortKeys: Key[] = ["sort_due", "f_prio", "sort_created"];
@@ -117,7 +142,10 @@ const CHECK = html`<span class="box"><svg width="12" height="12" viewBox="0 0 24
 
 function timeInput(value: string, label: string, pick: (v: string) => void): TemplateResult {
   return html`<input class="time-in" type="time" aria-label=${label} .value=${value}
-    @change=${(ev: Event) => { const v = (ev.target as HTMLInputElement).value; if (TIME.test(v)) pick(v); }}>`;
+    @change=${(ev: Event) => {
+      const input = ev.target as HTMLInputElement;
+      if (TIME.test(input.value)) pick(input.value); else input.value = value; // cleared: show the draft's time again
+    }}>`;
 }
 
 function checkRow(on: boolean, name: string, hint: string, onClick: () => void, service?: string): TemplateResult {
@@ -130,15 +158,20 @@ function checkRow(on: boolean, name: string, hint: string, onClick: () => void, 
 function eodTab(s: SettingsState, e: SettingsEvents): TemplateResult {
   const L = (k: Key) => t(e.lang, k);
   const d = s.eod;
-  if (!d) return s.eodLoading ? html`<p class="set-hint pad">${L("loading")}</p>` : html``;
+  if (!d) {
+    if (s.eodError) return html`<div class="notice" role="alert">${L("err_load_settings")}
+      <button class="pill-btn retry-eod" type="button" @click=${e.onRetry}>${L("retry")}</button></div>`;
+    return s.eodLoading ? html`<p class="set-hint pad">${L("loading")}</p>` : html``;
+  }
   // a phone removed from HA but still picked stays listed, so it can be unticked
   const services = [...d.offered_services, ...d.notify_services.filter((x) => !d.offered_services.includes(x))];
   const [pre, post] = t(e.lang, "event_hint", { event: "\u0000" }).split("\u0000");
   return html`
     <section class="set-sec">
       <h3 class="dlg-label">${L("eod_title")}</h3>
-      <div class="eod-opts" role="radiogroup" aria-label=${L("eod_title")}>${EOD_MODES.map(([m, path, c]) => html`
-        <button class="eod-opt" type="button" role="radio" data-mode=${m} aria-checked=${d.end_of_day_mode === m} @click=${() => e.onEod({ end_of_day_mode: m })}>
+      <div class="eod-opts" role="radiogroup" aria-label=${L("eod_title")} @keydown=${arrows}>${EOD_MODES.map(([m, path, c], i) => html`
+        <button class="eod-opt" type="button" role="radio" data-mode=${m} aria-checked=${d.end_of_day_mode === m}
+          tabindex=${rove(EOD_MODES.map(([x]) => x === d.end_of_day_mode), i)} @click=${() => e.onEod({ end_of_day_mode: m })}>
           <span class="radio"></span><span class="dot c-${c}">${icon(path, 15)}</span>
           <span class="set-text"><span class="set-name">${L(`eod_${m}`)}</span><span class="set-hint">${L(`eod_${m}_hint`)}</span></span>
         </button>`)}</div>
@@ -184,8 +217,9 @@ function parentForm(f: ParentForm, e: SettingsEvents): TemplateResult {
         ? html`<ha-icon-picker .hass=${e.hass} .value=${f.icon} @value-changed=${(ev: CustomEvent<{ value?: string }>) => set({ icon: ev.detail.value ?? "" })}></ha-icon-picker>`
         : html`<input class="text-in mono" name="icon" placeholder="mdi:…" .value=${f.icon} @input=${(ev: Event) => set({ icon: value(ev) })}>`}</label>
     <div class="field"><span class="dlg-label">${L("list_color")}</span>
-      <div class="chips" role="radiogroup" aria-label=${L("list_color")}>${PARENT_COLORS.map((c) => html`
-        <button class="color-chip c-${c}" type="button" role="radio" data-color=${c} aria-label=${c} aria-checked=${f.color === c} @click=${() => set({ color: c })}></button>`)}</div></div>
+      <div class="chips" role="radiogroup" aria-label=${L("list_color")} @keydown=${arrows}>${PARENT_COLORS.map((c, i) => html`
+        <button class="color-chip c-${c}" type="button" role="radio" data-color=${c} aria-label=${L(`color_${c}` as Key)} aria-checked=${f.color === c}
+          tabindex=${rove(PARENT_COLORS.map((x) => x === f.color), i)} @click=${() => set({ color: c })}></button>`)}</div></div>
     <div class="set-line"><span class="set-text grow"><span class="set-name">${L("list_checklist")}</span><span class="set-hint">${L("list_checklist_hint")}</span></span>${toggle(f.checklist, L("list_checklist"), () => set({ checklist: !f.checklist }))}</div>
     ${f.target !== undefined ? html`<label class="field"><span class="dlg-label">${L("move_items_to")}</span>
       <select class="text-in" @change=${(ev: Event) => set({ target: value(ev) })}>${others.map((p) => html`<option value=${p.id} ?selected=${p.id === f.target}>${p.name}</option>`)}</select></label>` : nothing}
@@ -235,28 +269,34 @@ function listsTab(d: CardConfig, form: ParentForm | undefined, e: SettingsEvents
 
 export function renderSettings(s: SettingsState, e: SettingsEvents): TemplateResult {
   const L = (k: Key) => t(e.lang, k);
-  const onBackdrop = (ev: Event) => { if (ev.target === ev.currentTarget) e.onClose(); };
+  const pending = formDirty(s.form, e.parents);
+  // Escape closes an open list form first; Cancel, the X and the backdrop only do so when it has unsaved changes
+  const close = () => (pending ? e.onForm(undefined) : e.onClose());
+  const onBackdrop = (ev: Event) => { if (ev.target === ev.currentTarget) close(); };
   const body = s.tab === "board" ? html`${scope(e.lang, false, "scope_dashboard_hint")}${boardTab(s.draft, e)}`
     : s.tab === "lists" ? html`${scope(e.lang, false, "scope_lists_hint")}${listsTab(s.draft, s.form, e)}`
       : html`${scope(e.lang, true, "scope_household_hint")}${eodTab(s, e)}`;
-  return html`<dialog class="kb-dialog kb-settings ${s.narrow ? "narrow" : ""}" aria-labelledby="kb-set-title" @close=${e.onClose} @click=${onBackdrop}>
+  return html`<dialog class="kb-dialog kb-settings ${s.narrow ? "narrow" : ""}" aria-labelledby="kb-set-title" @close=${e.onClose}
+    @cancel=${(ev: Event) => { if (s.form) { ev.preventDefault(); e.onForm(undefined); } }} @click=${onBackdrop}>
     <div class="dlg">
       <div class="dlg-head">
-        <div class="grow"><span class="dlg-kicker">${L("settings")}</span>
-          <h2 id="kb-set-title" class="hist-title">${L("title")} · ${L("settings")}</h2></div>
-        <button class="round-btn" type="button" aria-label=${L("close")} @click=${e.onClose}>
+        <div class="grow"><span class="dlg-kicker">Household Kanban</span>
+          <h2 id="kb-set-title" class="hist-title">${L("settings")}</h2></div>
+        <button class="round-btn" type="button" aria-label=${L("close")} @click=${close}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
         </button>
       </div>
-      <div class="set-tabs" role="tablist" aria-label=${L("settings")}>
-        ${TABS.map(([id, k]) => html`<button type="button" role="tab" data-tab=${id} aria-selected=${s.tab === id} @click=${() => e.onTab(id)}>${L(k)}</button>`)}
+      <div class="set-tabs" role="tablist" aria-label=${L("settings")} @keydown=${arrows}>
+        ${TABS.map(([id, k], i) => html`<button type="button" role="tab" id="kb-tab-${id}" data-tab=${id} aria-selected=${s.tab === id} aria-controls="kb-panel"
+          tabindex=${rove(TABS.map(([x]) => x === s.tab), i)} @click=${() => e.onTab(id)}>${L(k)}</button>`)}
       </div>
-      <div class="set-body" role="tabpanel">${body}</div>
+      <div class="set-body" id="kb-panel" role="tabpanel" aria-labelledby="kb-tab-${s.tab}">${body}</div>
       ${s.error ? html`<div class="notice" role="alert">${L(s.error)}</div>` : nothing}
       <div class="dlg-foot">
+        ${pending ? html`<span class="set-hint form-unsaved" role="status">${L("form_unsaved")}</span>` : nothing}
         <span class="grow"></span>
-        <button class="pill-btn" type="button" @click=${e.onClose}>${L("cancel")}</button>
-        <button class="primary-btn" type="button" ?disabled=${s.saving} @click=${e.onSave}>${L("save")}</button>
+        <button class="pill-btn" type="button" @click=${close}>${L("cancel")}</button>
+        <button class="primary-btn" type="button" ?disabled=${s.saving || pending} @click=${e.onSave}>${L("save")}</button>
       </div>
     </div>
   </dialog>`;

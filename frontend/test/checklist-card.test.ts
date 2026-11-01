@@ -178,3 +178,93 @@ test("a new note in a checklist list is titled and can be saved right away", asy
   expect(calls[0][0]).toBe("create_item");
   expect(calls[0][1]).toMatchObject({ summary: "Shopping", parent: "shop" });
 });
+
+const progressOf = (uid: string) => cardEl(uid).querySelector(".cl-progress")?.textContent?.trim();
+
+test("three ticks on three rows before any echo survive the echoes arriving one by one", async () => {
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs\n- [ ] bread" })]));
+  await settle();
+  for (let n = 0; n < 3; n++) { rows("a")[0].click(); await settle(); }
+  const sent = calls.map(([, d]) => d.description as string);
+  expect(sent[2]).toBe("- [x] bread\n- [x] eggs\n- [x] milk");
+  expect(progressOf("a")).toBe("3/3");
+  for (const echo of sent) {
+    push(board([item("a", { description: echo })]));
+    await settle();
+    expect(progressOf("a")).toBe("3/3");
+  }
+  expect(card._ticks.size).toBe(0);
+});
+
+test("a foreign write drops the pending tick", async () => {
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs" })]));
+  await settle();
+  rows("a")[0].click();
+  await settle();
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs\n- [ ] bread" })]));
+  await settle();
+  expect(card._ticks.size).toBe(0);
+  expect(progressOf("a")).toBe("0/3");
+});
+
+test("a pending tick whose echo never arrives is dropped after a timeout", async () => {
+  vi.useRealTimers();
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
+  vi.setSystemTime(new Date(2026, 10, 1, 9, 0));
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs" })]));
+  await settle();
+  rows("a")[0].click();
+  await settle();
+  expect(progressOf("a")).toBe("1/2");
+  vi.advanceTimersByTime(10_000);
+  await settle();
+  expect(card._ticks.size).toBe(0);
+  expect(progressOf("a")).toBe("0/2");
+});
+
+test("ticking the last open line does not complete the note", async () => {
+  push(board([item("a", { description: "- [ ] milk\n- [x] eggs" })]));
+  await settle();
+  rows("a")[0].click();
+  await settle();
+  expect(calls).toEqual([["update_item", { uid: "a", description: "- [x] milk\n- [x] eggs" }]]);
+});
+
+test("Save keeps a line someone else added and ticked meanwhile ticked", async () => {
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs" })]));
+  await settle();
+  await openDialog("a");
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs\n- [x] bread" })]));
+  await settle();
+  (dialog()!.querySelector(".cl-check") as HTMLButtonElement).click();
+  await settle();
+  btn(/^\s*Save\s*$/, dialog()!).click();
+  await settle();
+  expect(calls).toEqual([["update_item", { uid: "a", description: "- [ ] eggs\n- [x] milk\n- [x] bread" }]]);
+});
+
+test("a completed checklist note shows the reopen circle on the card", async () => {
+  push(board([item("a", { description: "- [x] milk", status: "completed", completed_at: "2026-11-01T08:00:00+00:00" })]));
+  await settle();
+  const check = cardEl("a").querySelector(".check") as HTMLButtonElement;
+  expect(check.getAttribute("aria-pressed")).toBe("true");
+  check.click();
+  await settle();
+  expect(calls).toEqual([["set_status", { uid: "a", status: "needs_action" }]]);
+});
+
+test("each × in the dialog list names its item", async () => {
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs" })]));
+  await settle();
+  await openDialog("a");
+  expect([...dialog()!.querySelectorAll(".cl-x")].map((b) => b.getAttribute("aria-label"))).toEqual(["Remove item: milk", "Remove item: eggs"]);
+});
+
+test("expanded with nothing ticked offers Show less", async () => {
+  push(board([item("a", { description: [1, 2, 3, 4, 5, 6].map((n) => `- [ ] i${n}`).join("\n") })]));
+  await settle();
+  btn(/\+ 1 more/, cardEl("a")).click();
+  await settle();
+  expect(btn(/Show less/, cardEl("a"))).toBeTruthy();
+  expect(btn(/Hide ticked/, cardEl("a"))).toBeUndefined();
+});

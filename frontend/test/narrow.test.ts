@@ -141,6 +141,14 @@ describe("narrow layout", () => {
     expect(q('.tile[data-tile="today"] .pill.c-red')?.textContent).toBe("1 overdue");
   });
 
+  test("closing a sheet opened from a chip returns the focus to that chip", async () => {
+    q('.qchip[data-tile="todo"]')!.click(); await settle();
+    expect(q(".sheet")).toBeTruthy();
+    q(".sheet")!.dispatchEvent(new Event("cancel", { cancelable: true })); await settle();
+    expect(q(".sheet")).toBeNull();
+    expect(root().activeElement).toBe(q('.qchip[data-tile="todo"]'));
+  });
+
   test("tap on an item opens the detail dialog", async () => {
     q('.prow[data-parent="household"]')!.click(); await settle();
     q('.sheet article[data-uid="b"]')!.click(); await settle();

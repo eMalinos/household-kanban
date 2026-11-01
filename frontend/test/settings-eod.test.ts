@@ -218,3 +218,126 @@ describe("list editing", () => {
     expect($(".kb-settings .parent-form .remove-parent")).toBeNull();
   });
 });
+
+const key = (sel: string, k: string) => { ($(sel) as HTMLElement).dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })); return settle(); };
+
+describe("polish", () => {
+  test("load error lives in the tab, survives Board edits and retries", async () => {
+    fail.add("household_kanban/settings");
+    await make();
+    await tab("eod");
+    expect($(".kb-settings .set-body .notice")?.textContent).toContain("Could not load the settings");
+    expect($(".kb-settings .dlg > .notice")).toBeNull();
+    await tab("board");
+    click('.kb-settings [role="switch"][data-col="later"]');
+    await settle();
+    await tab("eod");
+    expect($(".kb-settings .set-body .notice")).not.toBeNull();
+    fail.clear();
+    click(".kb-settings .retry-eod");
+    await settle();
+    expect($(".kb-settings .set-body .notice")).toBeNull();
+    expect($('.kb-settings [role="radio"][data-mode="raise"]')).not.toBeNull();
+  });
+
+  test("loading the tab keeps a pending save error", async () => {
+    fail.add("lovelace/config/save");
+    await make();
+    click('.kb-settings [role="switch"][data-col="later"]');
+    await settle();
+    click(".kb-settings .primary-btn");
+    await settle();
+    expect($(".kb-settings .dlg > .notice")?.textContent).toContain("Could not save the settings");
+    await tab("eod");
+    expect($(".kb-settings .dlg > .notice")?.textContent).toContain("Could not save the settings");
+  });
+
+  test("a cleared time input shows the draft's time again and sends nothing", async () => {
+    await make();
+    await tab("eod");
+    const input = $(".kb-settings .time-in") as HTMLInputElement;
+    input.value = "";
+    input.dispatchEvent(new Event("change"));
+    await settle();
+    expect(input.value).toBe("23:59");
+    click(".kb-settings .primary-btn");
+    await settle();
+    expect(of("household_kanban/settings/update")).toHaveLength(0);
+  });
+
+  test("an unsaved list form blocks Save; Cancel and Escape close the form first", async () => {
+    await make();
+    await tab("lists");
+    click('.kb-settings .edit-list[data-parent="garden"]');
+    await settle();
+    expect(($(".kb-settings .dlg-foot .primary-btn") as HTMLButtonElement).disabled).toBe(false);
+    const name = $(".kb-settings .parent-form input[name=name]") as HTMLInputElement;
+    name.value = "Yard";
+    name.dispatchEvent(new Event("input"));
+    await settle();
+    expect(($(".kb-settings .dlg-foot .primary-btn") as HTMLButtonElement).disabled).toBe(true);
+    expect($(".kb-settings .form-unsaved")?.textContent).toBe("Save or cancel the list first");
+    click(".kb-settings .dlg-foot .pill-btn");
+    await settle();
+    expect($(".kb-settings .parent-form")).toBeNull();
+    expect($("dialog.kb-settings")).not.toBeNull();
+    expect($(".kb-settings .form-unsaved")).toBeNull();
+    click('.kb-settings .edit-list[data-parent="garden"]');
+    await settle();
+    const esc = new Event("cancel", { cancelable: true });
+    ($("dialog.kb-settings") as HTMLElement).dispatchEvent(esc);
+    await settle();
+    expect(esc.defaultPrevented).toBe(true);
+    expect($(".kb-settings .parent-form")).toBeNull();
+    click(".kb-settings .dlg-foot .pill-btn");
+    await settle();
+    expect($("dialog.kb-settings")).toBeNull();
+  });
+
+  test("Cancel closes the dialog at once when the open list form is unchanged", async () => {
+    await make();
+    await tab("lists");
+    click('.kb-settings .edit-list[data-parent="garden"]');
+    await settle();
+    expect($(".kb-settings .parent-form")).not.toBeNull();
+    click(".kb-settings .dlg-foot .pill-btn");
+    await settle();
+    expect($("dialog.kb-settings")).toBeNull();
+  });
+
+  test("tabs are wired to the panel and move with the arrow keys", async () => {
+    await make();
+    const board = $('.kb-settings [role="tab"][data-tab="board"]') as HTMLElement;
+    const panel = $(".kb-settings [role=tabpanel]") as HTMLElement;
+    expect(board.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("aria-labelledby")).toBe(board.id);
+    expect(board.tabIndex).toBe(0);
+    expect(($('.kb-settings [role="tab"][data-tab="eod"]') as HTMLElement).tabIndex).toBe(-1);
+    await key('.kb-settings [role="tab"][data-tab="board"]', "ArrowRight");
+    expect($('.kb-settings [role="tab"][data-tab="eod"]')?.getAttribute("aria-selected")).toBe("true");
+    expect(panel.getAttribute("aria-labelledby")).toBe("kb-tab-eod");
+    await key('.kb-settings [role="tab"][data-tab="eod"]', "End");
+    expect($('.kb-settings [role="tab"][data-tab="lists"]')?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  test("radios rove: arrow keys pick the next mode, only the checked one is tabbable", async () => {
+    await make();
+    await tab("eod");
+    const mode = (m: string) => $(`.kb-settings [role="radio"][data-mode="${m}"]`) as HTMLElement;
+    expect(mode("raise").tabIndex).toBe(0);
+    expect(mode("keep").tabIndex).toBe(-1);
+    await key('.kb-settings [role="radio"][data-mode="raise"]', "ArrowRight");
+    expect(mode("keep").getAttribute("aria-checked")).toBe("true");
+    expect(mode("keep").tabIndex).toBe(0);
+  });
+
+  test("colour chips have names and the kicker is the product name", async () => {
+    await make();
+    expect($(".kb-settings .dlg-kicker")?.textContent).toBe("Household Kanban");
+    expect($(".kb-settings #kb-set-title")?.textContent).toBe("Settings");
+    await tab("lists");
+    click(".kb-settings .add-list");
+    await settle();
+    expect($('.kb-settings [data-color="green"]')?.getAttribute("aria-label")).toBe("Green");
+  });
+});

@@ -1,7 +1,7 @@
 /** Description format `<note>\n\n<- [ ] lines>`; same rules as checklist.py. */
 export interface Line { done: boolean; text: string }
 
-const LINE = /^- \[( |x|X)\] (.+)$/;
+const LINE = /^- \[( |x|X)\] ([^\n]+)$/;
 
 /** The note and the trailing run of checklist lines. */
 export function split(description: string): { note: string; lines: Line[] } {

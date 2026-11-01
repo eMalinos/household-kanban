@@ -113,6 +113,65 @@ test("a toolbar click changes the note and keeps the checklist part", async () =
   expect(calls).toEqual([["update_item", { uid: "a", description: "**word**\n\n- [ ] milk" }]]);
 });
 
+test("applyFormat bullets on mixed lines adds the prefix only where missing and skips blank lines", () => {
+  const on = applyFormat("- one\ntwo\n\nthree", 0, 15, "bullets");
+  expect(on.value).toBe("- one\n- two\n\n- three");
+  expect(applyFormat(on.value, on.start, on.end, "bullets").value).toBe("one\ntwo\n\nthree");
+});
+
+async function editNote(value: string) {
+  await open("- [ ] milk");
+  const ta = dialog().querySelector("textarea") as HTMLTextAreaElement;
+  ta.value = value;
+  ta.dispatchEvent(new Event("input"));
+  await settle();
+  return ta;
+}
+
+test("a toolbar edit replaces only the changed range, so native undo keeps working", async () => {
+  const ta = await editNote("a word b");
+  const spy = vi.spyOn(ta, "setRangeText");
+  ta.setSelectionRange(2, 6);
+  dialog().querySelector<HTMLButtonElement>('button[data-fmt="italic"]')!.click();
+  await settle();
+  expect(spy).toHaveBeenCalledOnce();
+  expect(ta.value).toBe("a *word* b");
+  expect([ta.selectionStart, ta.selectionEnd]).toEqual([3, 7]);
+  btn(/^\s*Save\s*$/, dialog()).click();
+  await settle();
+  expect(calls).toEqual([["update_item", { uid: "a", description: "a *word* b\n\n- [ ] milk" }]]);
+});
+
+test("a format that changes nothing leaves the note, selection and undo stack alone", async () => {
+  const ta = await editNote("\n\n");
+  const spy = vi.spyOn(ta, "setRangeText");
+  ta.setSelectionRange(0, 2);
+  dialog().querySelector<HTMLButtonElement>('button[data-fmt="bullets"]')!.click();
+  expect(spy).not.toHaveBeenCalled();
+  expect(ta.value).toBe("\n\n");
+  expect([ta.selectionStart, ta.selectionEnd]).toEqual([0, 2]);
+});
+
+test("Ctrl+B formats, Ctrl+Shift+B and Ctrl+Alt+B do not", async () => {
+  const ta = await editNote("word");
+  ta.setSelectionRange(0, 4);
+  for (const extra of [{ shiftKey: true }, { altKey: true }]) {
+    ta.dispatchEvent(new KeyboardEvent("keydown", { key: "b", ctrlKey: true, bubbles: true, ...extra }));
+  }
+  expect(ta.value).toBe("word");
+  ta.dispatchEvent(new KeyboardEvent("keydown", { key: "b", ctrlKey: true, bubbles: true }));
+  expect(ta.value).toBe("**word**");
+});
+
+test("toolbar buttons have tooltips and the link button is an icon, not an emoji", async () => {
+  await editNote("");
+  const fmt = [...dialog().querySelectorAll<HTMLButtonElement>(".fmt-btn")];
+  expect(fmt.every((b) => b.title && b.title === b.getAttribute("aria-label"))).toBe(true);
+  const link = dialog().querySelector('button[data-fmt="link"]')!;
+  expect(link.textContent).not.toContain("🔗");
+  expect(link.querySelector("svg")).not.toBeNull();
+});
+
 test("a click whose composed path holds an anchor in a shadow root does not open the dialog", async () => {
   class FakeMd extends HTMLElement {
     constructor() { super(); this.attachShadow({ mode: "open" }).innerHTML = '<a href="#x">l</a>'; }

@@ -63,13 +63,12 @@ export function changedFields(item: Item, d: Draft): ItemFields {
 }
 
 /**
- * The draft's description plus every line that arrived after the dialog opened.
+ * The draft's description plus every line that arrived after the dialog opened, ticked or not as it arrived.
  * ponytail: only additions merge; a concurrent tick or edit by someone else is last write wins.
  */
 function mergeAdded(d: Draft, latest: string): string {
   const known = new Set([...split(d.base).lines, ...d.lines].map((l) => l.text));
-  const lines = split(latest).lines.reduce((acc, l) => (known.has(l.text) ? acc : add(acc, l.text)), d.lines);
-  return join(d.description, lines);
+  return join(d.description, [...d.lines, ...split(latest).lines.filter((l) => !known.has(l.text))]);
 }
 
 export type Quick = "today" | "tomorrow" | "weekend" | "none";
@@ -116,8 +115,8 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
 
       <div class="field">
         <div class="row"><span class="dlg-label grow">${L("f_note")}</span>
-          ${d.preview ? nothing : FORMATS.map(([k, label]) => html`<button class="fmt-btn" type="button" data-fmt=${k} aria-label=${L(`fmt_${k}` as Key)}
-            @click=${(ev: Event) => format(ev, k, e)}>${label}</button>`)}
+          ${d.preview ? nothing : FORMATS.map(([k, label]) => html`<button class="fmt-btn" type="button" data-fmt=${k}
+            aria-label=${L(`fmt_${k}` as Key)} title=${L(`fmt_${k}` as Key)} @click=${(ev: Event) => format(ev, k)}>${label}</button>`)}
           <span class="seg2" role="group">
             <button class="pill-btn ${d.preview ? "" : "on"}" type="button" aria-pressed=${!d.preview} @click=${() => e.onChange({ preview: false })}>${L("note_edit")}</button>
             <button class="pill-btn ${d.preview ? "on" : ""}" type="button" aria-pressed=${d.preview} @click=${() => e.onChange({ preview: true })}>${L("note_preview")}</button>
@@ -126,7 +125,7 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
           @input=${(ev: Event) => e.onChange({ description: (ev.target as HTMLTextAreaElement).value })}
           @keydown=${(ev: KeyboardEvent) => {
             const k = ev.key.toLowerCase();
-            if ((ev.ctrlKey || ev.metaKey) && (k === "b" || k === "i")) { ev.preventDefault(); format(ev, k === "b" ? "bold" : "italic", e); }
+            if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && !ev.altKey && (k === "b" || k === "i")) { ev.preventDefault(); format(ev, k === "b" ? "bold" : "italic"); }
           }}></textarea>`}
       </div>
 
@@ -176,19 +175,34 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
   </dialog>`;
 }
 
+const LINK = html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
 const FORMATS: [Format, TemplateResult | string][] = [
-  ["bold", html`<b>B</b>`], ["italic", html`<i>I</i>`], ["bullets", "•"], ["link", "🔗"],
+  ["bold", html`<b>B</b>`], ["italic", html`<i>I</i>`], ["bullets", "•"], ["link", LINK],
 ];
 
-/** Apply a toolbar format to the note textarea and restore its selection. */
-function format(ev: Event, kind: Format, e: DialogEnv): void {
+/**
+ * Apply a toolbar format to the note textarea: only the changed range is replaced, through the
+ * browser's editing command where it exists, so Ctrl+Z undoes it; the `input` event updates the draft.
+ */
+function format(ev: Event, kind: Format): void {
   const ta = (ev.currentTarget as HTMLElement).closest(".field")?.querySelector("textarea");
   if (!ta) return;
-  const r = applyFormat(ta.value, ta.selectionStart, ta.selectionEnd, kind);
-  ta.value = r.value;
+  const old = ta.value;
+  const r = applyFormat(old, ta.selectionStart, ta.selectionEnd, kind);
+  if (r.value === old) return;
+  let s = 0, k = 0;
+  while (s < old.length && s < r.value.length && old[s] === r.value[s]) s++;
+  while (k < old.length - s && k < r.value.length - s && old[old.length - 1 - k] === r.value[r.value.length - 1 - k]) k++;
+  const text = r.value.slice(s, r.value.length - k);
   ta.focus();
+  ta.setSelectionRange(s, old.length - k);
+  // execCommand is deprecated but still the only way into the native undo stack
+  if (!document.execCommand?.(text ? "insertText" : "delete", false, text) || ta.value !== r.value) {
+    ta.value = old; // a partial or missing editing command: fall back to a plain range replacement
+    ta.setRangeText(text, s, old.length - k);
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  }
   ta.setSelectionRange(r.start, r.end);
-  e.onChange({ description: r.value });
 }
 
 const X = html`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>`;
@@ -212,7 +226,7 @@ function renderList(d: Draft, e: DialogEnv): TemplateResult {
         <button class="cl-check" type="button" role="checkbox" aria-checked=${l.done} aria-label=${l.text}
           @click=${() => e.onChange({ lines: toggle(d.lines, i) })}>${TICK}</button>
         <span class="cl-text">${l.text}</span>
-        <button class="cl-x" type="button" aria-label=${L("cl_remove")} @click=${() => e.onChange({ lines: remove(d.lines, i) })}>${X}</button>
+        <button class="cl-x" type="button" aria-label=${`${L("cl_remove")}: ${l.text}`} @click=${() => e.onChange({ lines: remove(d.lines, i) })}>${X}</button>
       </div>`)}
       <label class="cl-add"><span aria-hidden="true">+</span>
         <input type="text" autocomplete="off" placeholder=${L("cl_add_ph")} aria-label=${L("cl_add_ph")}

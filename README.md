@@ -3,7 +3,10 @@
 A shared household board for Home Assistant. Tasks live in ordinary `todo.*` entities (one per list, called a *parent*, e.g. *Household*, *Shopping*), so the HA app, Assist and automations keep working. The card shows them as a kanban board (To-do, This week, Today, Done) on wide screens and as tiles with a bottom sheet on phones. Priorities, assignees, an end-of-day rollover, a morning notification and a searchable history are included.
 
 ![Board](docs/screenshots/board.png)
-![History](docs/screenshots/history.png)
+
+| Shopping list in one note | Formatted note | Settings from the board | History |
+|---|---|---|---|
+| ![Shopping list](docs/screenshots/checklist.png) | ![Note](docs/screenshots/note.png) | ![Settings](docs/screenshots/settings.png) | ![History](docs/screenshots/history.png) |
 
 <p>
 <img src="docs/screenshots/mobile-tiles.png" width="260" alt="Mobile tiles">
@@ -12,7 +15,7 @@ A shared household board for Home Assistant. Tasks live in ordinary `todo.*` ent
 
 ## Install
 
-1. HACS → three dots → *Custom repositories* → `https://github.com/eMalinos/household-kanban`, category **Integration** (needed while the repository is private or not in the default list).
+1. HACS → three dots → *Custom repositories* → `https://github.com/eMalinos/household-kanban`, category **Integration** (needed until it is in the HACS default list).
 2. Download *Household Kanban*, restart Home Assistant.
 3. Settings → Devices & services → Add integration → *Household Kanban*.
 
