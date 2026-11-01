@@ -12,8 +12,7 @@ const en = {
   done_today: "Done today", done_yesterday: "Done yesterday", done_days_ago: "Done {n} days ago",
   done_note: "Last {days} days · {older} older in history",
   more: "+ {n} more", collapse: "Collapse", open_list: "Open list",
-  sum_open: "{n} open", sum_today: "{n} for today", sum_moved: "{n} moved from yesterday", sum_overdue: "{n} overdue",
-  loading: "Loading…",
+  loading: "Loading…", err_load: "Could not load tasks. Retrying…", err_update: "Could not update the task.",
 };
 const cs: typeof en = {
   title: "Úkoly",
@@ -29,8 +28,7 @@ const cs: typeof en = {
   done_today: "Hotovo dnes", done_yesterday: "Hotovo včera", done_days_ago: "Hotovo před {n} dny",
   done_note: "Za posledních {days} dní · {older} starších v historii",
   more: "+ {n} dalších", collapse: "Sbalit", open_list: "Otevřít seznam",
-  sum_open: "{n} otevřených", sum_today: "{n} na dnes", sum_moved: "{n} přesunuté ze včerejška", sum_overdue: "{n} po termínu",
-  loading: "Načítání…",
+  loading: "Načítání…", err_load: "Úkoly se nepodařilo načíst. Zkouším znovu…", err_update: "Úkol se nepodařilo změnit.",
 };
 
 export type Key = keyof typeof en;
@@ -39,4 +37,28 @@ const dict: Record<string, typeof en> = { en, cs };
 export function t(lang: string | undefined, key: Key, vars: Record<string, string | number> = {}): string {
   const d = dict[(lang ?? "en").split("-")[0]] ?? en;
   return d[key].replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ""));
+}
+
+type Forms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
+const plural: Record<string, Record<string, Forms>> = {
+  en: {
+    sum_open: { other: "{n} open" },
+    sum_today: { other: "{n} for today" },
+    sum_moved: { other: "{n} moved from yesterday" },
+    sum_overdue: { other: "{n} overdue" },
+  },
+  cs: {
+    sum_open: { one: "{n} otevřený", few: "{n} otevřené", other: "{n} otevřených" },
+    sum_today: { other: "{n} na dnes" },
+    sum_moved: { one: "{n} přesunutý ze včerejška", few: "{n} přesunuté ze včerejška", other: "{n} přesunutých ze včerejška" },
+    sum_overdue: { other: "{n} po termínu" },
+  },
+};
+
+/** Count-dependent strings, picked with Intl.PluralRules. */
+export function tn(lang: string | undefined, base: "sum_open" | "sum_today" | "sum_moved" | "sum_overdue", n: number): string {
+  const code = (lang ?? "en").split("-")[0];
+  const l = code in plural ? code : "en";
+  const forms = plural[l][base];
+  return (forms[new Intl.PluralRules(l).select(n)] ?? forms.other).replace("{n}", String(n));
 }

@@ -29,20 +29,22 @@ export function parentDot(p: Parent | undefined, small = false): TemplateResult 
   return html`<span class="dot ${small ? "sm" : ""} ${colorClass(p?.color ?? "grey")}"><ha-icon .icon=${p?.icon ?? "mdi:format-list-checks"}></ha-icon></span>`;
 }
 
-export function avatar(hass: Hass, entityId: string | null, size = ""): TemplateResult {
+/** `decorative`: the name is already announced by a parent button, so the image gets an empty alt. */
+export function avatar(hass: Hass, entityId: string | null, size = "", decorative = false): TemplateResult {
   if (!entityId) return html`<span class="ava none ${size}" title="-">+</span>`;
   const name = personName(hass, entityId);
   const pic = hass.states[entityId]?.attributes.entity_picture;
-  if (typeof pic === "string" && pic) return html`<img class="ava ${size}" src=${pic} alt=${name} title=${name} />`;
+  if (typeof pic === "string" && pic) return html`<img class="ava ${size}" src=${pic} alt=${decorative ? "" : name} title=${name} />`;
   const hue = [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
   return html`<span class="ava ${size}" title=${name} style="background:linear-gradient(135deg,hsl(${hue} 55% 62%),hsl(${(hue + 25) % 360} 55% 42%))">${initials(name)}</span>`;
 }
 
 const CHECK = html`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>`;
 
-function checkButton(item: Item, env: Env, label: string, xs = false): TemplateResult {
+/** Stable label (the summary) with aria-pressed carrying the state. */
+function checkButton(item: Item, env: Env, xs = false): TemplateResult {
   const done = item.status === "completed";
-  return html`<button class="check ${xs ? "xs" : ""}" type="button" aria-pressed=${done} aria-label=${label}
+  return html`<button class="check ${xs ? "xs" : ""}" type="button" aria-pressed=${done} aria-label=${item.summary}
     @click=${() => env.onToggle(item)}>${CHECK}</button>`;
 }
 
@@ -78,7 +80,7 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
       ${avatar(env.hass, item.assignee)}
     </div>
     <div class="row top">
-      ${checkButton(item, env, t(env.lang, done ? "mark_open" : "mark_done"))}
+      ${checkButton(item, env)}
       <span class="title">${item.summary}</span>
     </div>
     <div class="pills">
@@ -101,7 +103,7 @@ export function renderStack(stack: Stack, env: Env, expanded: boolean, onExpand:
     </div>
     <div class="stack-rows">
       ${shown.map((item) => html`<div class="item">
-        ${checkButton(item, env, t(env.lang, "bought"), true)}
+        ${checkButton(item, env, true)}
         <span class="t">${item.summary}</span>
         ${item.assignee ? avatar(env.hass, item.assignee, "xs") : nothing}
       </div>`)}

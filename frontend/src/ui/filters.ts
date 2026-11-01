@@ -22,7 +22,7 @@ export function renderFilters(
       ${people.map((id) => {
         const on = state.who === id;
         return html`<button class="person" type="button" aria-pressed=${on} @click=${() => set({ who: on ? null : id })}>
-          ${avatar(env.hass, id, "lg")}<span>${personName(env.hass, id)}</span></button>`;
+          ${avatar(env.hass, id, "lg", true)}<span>${personName(env.hass, id)}</span></button>`;
       })}
     </div>
     <div class="parents" role="group" aria-label=${t(env.lang, "filter_parents")}>

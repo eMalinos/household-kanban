@@ -96,5 +96,6 @@ export const styles = css`
   .stack-rows .item span.t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .link { border: 0; background: transparent; padding: 4px 6px; text-align: left; font-size: 13px; font-weight: 600; color: var(--kb-warm-text); display: flex; align-items: center; gap: 4px; }
   .link.muted { color: var(--kb-text-2); }
+  .notice { padding: 8px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; background: rgba(var(--c-red), 0.14); color: rgb(var(--c-red)); }
   .loading { padding: 24px; text-align: center; color: var(--kb-text-2); }
 `;

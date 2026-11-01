@@ -5,7 +5,7 @@ import { parseDue } from "./dates";
 function dueKey(item: Item): number {
   if (!item.due) return Infinity;
   const { date, hasTime } = parseDue(item.due);
-  return hasTime ? +date : +date + 86_399_999;
+  return hasTime ? +date : +new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1) - 1;
 }
 
 /** due date + time → priority → created_at (older first). */
