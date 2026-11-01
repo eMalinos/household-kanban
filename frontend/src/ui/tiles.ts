@@ -37,7 +37,8 @@ export const TILE_META: Record<ColumnId, { icon: string; color: string }> = {
   later: { icon: "mdi:calendar-clock", color: "purple" },
   done: { icon: "mdi:check-circle-outline", color: "green" },
 };
-const ORDER: ColumnId[] = ["today", "overdue", "week", "todo", "later", "done"];
+const ORDER: ColumnId[] = ["today", "overdue", "week", "later"];
+const CHIPS: ColumnId[] = ["todo", "done"];
 
 export interface TilesView {
   ctx: Ctx; items: Item[]; people: string[]; who: string | null;
@@ -59,7 +60,7 @@ export function renderTiles(v: TilesView, env: Env): TemplateResult {
     </div>
     <div class="tiles">
       ${ORDER.filter((c) => v.ctx.enabled.has(c)).map((c) => {
-        const wide = c === "today" || c === "done";
+        const wide = c === "today" || c === "week";
         const badge = c === "today" ? s.overdue : 0;
         return html`<button class="tile ${wide ? "wide" : ""} ${colorClass(TILE_META[c].color)}" type="button" data-tile=${c} @click=${() => v.onTile(c)}>
           <span class="row">
@@ -72,6 +73,11 @@ export function renderTiles(v: TilesView, env: Env): TemplateResult {
             <span class="mark"></span><span class="t">${i.summary}</span>${i.assignee ? avatar(env.hass, i.assignee, "xs", true) : nothing}</span>`)}</span>` : nothing}
         </button>`;
       })}
+    </div>
+    <div class="qchips">
+      ${CHIPS.filter((c) => v.ctx.enabled.has(c)).map((c) => html`<button class="qchip ${colorClass(TILE_META[c].color)}" type="button" data-tile=${c} @click=${() => v.onTile(c)}>
+        <span class="dot"><ha-icon .icon=${TILE_META[c].icon}></ha-icon></span>
+        <span class="qlabel">${t(env.lang, `col_${c}` as Key)}</span><span class="qcount">${s.counts[c]}</span></button>`)}
     </div>
     <span class="dlg-label tiles-h">${t(env.lang, "lists")}</span>
     <div class="plist">

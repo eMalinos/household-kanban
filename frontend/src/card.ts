@@ -658,7 +658,7 @@ class HouseholdKanbanCard extends LitElement {
     return html`${renderTiles({
       ctx, items, people, who,
       onWho: (id) => { this._filter = { ...this._filter, who: id }; },
-      onTile: (c) => this._openSheet("col", c, `.tile[data-tile="${c}"]`),
+      onTile: (c) => this._openSheet("col", c, `[data-tile="${c}"]`),
       onParent: (id) => this._openSheet("parent", id, `.prow[data-parent="${id}"]`),
     }, env)}${sheet}`;
   }

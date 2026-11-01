@@ -183,6 +183,11 @@ export const styles = css`
   .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .tile { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 14px; min-height: 44px; text-align: left; border-radius: 20px; border: 1px solid var(--kb-border); background: var(--kb-card); box-shadow: var(--kb-shadow); }
   .tile.wide { grid-column: 1 / -1; }
+  .qchips { display: flex; gap: 12px; }
+  .qchips:empty { display: none; }
+  .qchip { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px 0 10px; border-radius: 999px; border: 1px solid var(--kb-border); background: var(--kb-card); box-shadow: var(--kb-shadow); color: var(--kb-text); font-size: 15px; font-weight: 600; }
+  .qlabel { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qcount { font-size: 17px; font-weight: 700; }
   .tile-label { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--kb-text-2); }
   .tile-count { font-size: 36px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
   .preview { display: flex; flex-direction: column; gap: 6px; }

@@ -1,5 +1,7 @@
+// @vitest-environment happy-dom
 import { describe, expect, test } from "vitest";
-import { tileSummary } from "../src/ui/tiles";
+import { render } from "lit";
+import { renderTiles, tileSummary } from "../src/ui/tiles";
 import { weekRange } from "../src/logic/dates";
 import type { Ctx } from "../src/logic/columns";
 import type { Item } from "../src/types";
@@ -44,5 +46,40 @@ describe("tileSummary", () => {
     ], ctx);
     expect(s.preview.map((i) => i.uid)).toEqual(["old", "milk", "early"]);
     expect(s.counts.today).toBe(5);
+  });
+});
+
+describe("mobile chips", () => {
+  const draw = (enabled: string[], onTile: (c: string) => void = () => undefined) => {
+    const host = document.createElement("div");
+    const env = { hass: { states: {} }, lang: "en", now, parents: [] } as never;
+    render(renderTiles({
+      ctx: { ...ctx, enabled: new Set(enabled) as Ctx["enabled"] }, items: [item("a"), item("b"), item("t", { due: "2026-11-01" })],
+      people: [], who: null, onWho: () => undefined, onTile, onParent: () => undefined,
+    }, env), host);
+    return host;
+  };
+
+  test("chips follow enabled columns", () => {
+    const h = draw(["todo", "week", "today", "done"]);
+    expect([...h.querySelectorAll(".qchip")].map((e) => (e as HTMLElement).dataset.tile)).toEqual(["todo", "done"]);
+    const off = draw(["todo", "week", "today"]);
+    expect([...off.querySelectorAll(".qchip")].map((e) => (e as HTMLElement).dataset.tile)).toEqual(["todo"]);
+  });
+
+  test("a chip shows its count (also 0) and a click opens that column", () => {
+    const opened: string[] = [];
+    const h = draw(["todo", "today", "done"], (c) => { opened.push(c); });
+    expect(h.querySelector('.qchip[data-tile="todo"] .qcount')?.textContent).toBe("2");
+    const done = h.querySelector('.qchip[data-tile="done"]') as HTMLElement;
+    expect(done.querySelector(".qcount")?.textContent).toBe("0");
+    done.click();
+    expect(opened).toEqual(["done"]);
+  });
+
+  test("Today and This week are tiles, To-do and Done are not", () => {
+    const h = draw(["todo", "week", "today", "done"]);
+    expect([...h.querySelectorAll(".tile")].map((e) => (e as HTMLElement).dataset.tile)).toEqual(["today", "week"]);
+    expect(h.querySelectorAll(".tile.wide").length).toBe(2);
   });
 });
