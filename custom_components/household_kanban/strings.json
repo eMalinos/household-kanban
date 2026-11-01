@@ -61,7 +61,7 @@
           "name": "Name",
           "icon": "Icon",
           "color": "Colour",
-          "collapse": "Collapsed on the board"
+          "checklist": "Shopping list (items go into one note)"
         }
       },
       "edit_parent": {
@@ -77,7 +77,7 @@
           "name": "Name",
           "icon": "Icon",
           "color": "Colour",
-          "collapse": "Collapsed on the board"
+          "checklist": "Shopping list (items go into one note)"
         }
       },
       "remove_parent": {

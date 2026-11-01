@@ -4,7 +4,7 @@ import "../src/editor";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const parents = ["household", "garden"].map((id) => ({ id, entity_id: `todo.${id}`, name: id, icon: "", color: "blue", collapse: false }));
+const parents = ["household", "garden"].map((id) => ({ id, entity_id: `todo.${id}`, name: id, icon: "", color: "blue", checklist: false }));
 let ed: any;
 
 function make(subscribeMessage: (cb: (e: unknown) => void) => Promise<() => void>) {

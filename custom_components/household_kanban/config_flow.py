@@ -96,7 +96,7 @@ class KanbanOptionsFlow(OptionsFlow):
         name: str = "",
         icon: str = DEFAULT_PARENT_ICON,
         color: str = DEFAULT_PARENT_COLOR,
-        collapse: bool = False,
+        checklist: bool = False,
     ) -> vol.Schema:
         return vol.Schema(
             {
@@ -109,7 +109,7 @@ class KanbanOptionsFlow(OptionsFlow):
                         translation_key="parent_color",
                     )
                 ),
-                vol.Required("collapse", default=collapse): BooleanSelector(),
+                vol.Required("checklist", default=checklist): BooleanSelector(),
             }
         )
 
@@ -164,7 +164,7 @@ class KanbanOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="edit_parent_details",
             data_schema=self._parent_schema(
-                parent.name, parent.icon, parent.color, parent.collapse
+                parent.name, parent.icon, parent.color, parent.checklist
             ),
             errors=errors,
             description_placeholders={"parent": parent.id},

@@ -63,7 +63,7 @@ export interface Settings {
   offered_services: string[]; // currently registered notify.mobile_app_* (sorted)
 }
 export type SettingsPatch = Partial<Omit<Settings, "offered_services">>;
-export type ParentFields = Pick<Parent, "name" | "icon" | "color" | "collapse">;
+export type ParentFields = Pick<Parent, "name" | "icon" | "color" | "checklist">;
 
 export function getSettings(hass: Hass): Promise<Settings> {
   return hass.connection.sendMessagePromise({ type: `${DOMAIN}/settings` });

@@ -24,7 +24,7 @@ async def test_subscribe_pushes_on_change(hass, entry, hass_ws_client):
             "name": "Household",
             "icon": "mdi:home",
             "color": "blue",
-            "collapse": False,
+            "checklist": False,
         }
     ]
 

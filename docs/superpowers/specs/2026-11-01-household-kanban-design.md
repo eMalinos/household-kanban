@@ -82,3 +82,13 @@ Visual design: canvas page v6 (`Settings6`, `Main6*`, `Mobile6`). Plan: `docs/su
 - **Lists & people**: which parents and people this dashboard shows (this dashboard only); adding, renaming, recolouring and removing a list applies to the whole household.
 - **End of day & notifications** (whole household): the same values as the integration options; both places stay editable.
 - Card editor and options flow keep working; the dialog is a shortcut, not a replacement. *(builder's call)*
+
+## v1.2: checklist notes, formatting, mobile chips
+
+Visual design: canvas page v7. Plan: `docs/superpowers/plans/2026-11-01-checklist-notes.md`.
+
+- **Shopping = one note with a checklist** (user decision: replaces the per-item shopping list and its collapsed stack). Items are added and ticked in native UI (rows, "Add item…"), never by typing markdown (user decision). Ticked items are struck through and move to the end; the card shows progress and the first open items; the note is completed explicitly (offered when everything is ticked).
+- A list marked **Shopping list** (`checklist`, formerly "collapse") receives items added from outside the card (Assist, HA app) as new lines in its newest open note, or a new "Shopping" note when none is open. *(builder's call, shown in v7)*
+- The checklist is stored as task-list lines at the end of the item description, so the HA app and Reminders still show readable text. *(builder's call)*
+- **Notes support basic formatting** (bold, italic, bullets, links) with a small toolbar and a preview; rendered by HA's own markdown element.
+- **Narrow layout:** Today and This week stay tiles; To-do and Done become chips that open the bottom sheet.

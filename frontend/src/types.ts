@@ -1,6 +1,6 @@
 export type Priority = 1 | 2 | 3;
 export interface Parent {
-  id: string; entity_id: string; name: string; icon: string; color: string; collapse: boolean;
+  id: string; entity_id: string; name: string; icon: string; color: string; checklist: boolean;
 }
 export interface Item {
   uid: string; parent: string; summary: string; description: string;

@@ -3,31 +3,33 @@ import { columnOf, type ColumnId, type Ctx } from "../logic/columns";
 import { parseDue, startOfDay } from "../logic/dates";
 import { compareItems } from "../logic/sort";
 import { t, tn, type Key } from "../i18n";
-import type { Item, Parent } from "../types";
+import type { Item } from "../types";
 import { avatar, colorClass, parentDot, personName, type Env } from "./item-card";
 
 export interface TileSummary {
   counts: Record<ColumnId, number>;
   /** Items in the Today column that were due before today (the Today tile badge). */
   overdue: number;
-  /** First 3 Today items in sort order, skipping parents that collapse into a stack. */
+  /** First 3 Today items in sort order. */
   preview: Item[];
+  /** First 3 This week items in sort order. */
+  weekPreview: Item[];
 }
 
-export function tileSummary(items: Item[], ctx: Ctx, parents: Parent[] = []): TileSummary {
+export function tileSummary(items: Item[], ctx: Ctx): TileSummary {
   const counts: Record<ColumnId, number> = { todo: 0, later: 0, week: 0, today: 0, overdue: 0, done: 0 };
   const today = startOfDay(ctx.now);
-  const inToday: Item[] = [];
+  const inToday: Item[] = [], inWeek: Item[] = [];
   let overdue = 0;
   for (const i of items) {
     const col = columnOf(i, ctx);
     if (col) counts[col]++;
     if (col === "today") inToday.push(i);
+    if (col === "week") inWeek.push(i);
     if (col === "today" && i.due && startOfDay(parseDue(i.due).date) < today) overdue++;
   }
-  const collapsed = new Set(parents.filter((p) => p.collapse).map((p) => p.id));
-  const preview = inToday.filter((i) => !collapsed.has(i.parent)).sort(compareItems).slice(0, 3);
-  return { counts, overdue, preview };
+  const top = (list: Item[]) => list.sort(compareItems).slice(0, 3);
+  return { counts, overdue, preview: top(inToday), weekPreview: top(inWeek) };
 }
 
 export const TILE_META: Record<ColumnId, { icon: string; color: string }> = {
@@ -38,7 +40,8 @@ export const TILE_META: Record<ColumnId, { icon: string; color: string }> = {
   later: { icon: "mdi:calendar-clock", color: "purple" },
   done: { icon: "mdi:check-circle-outline", color: "green" },
 };
-const ORDER: ColumnId[] = ["today", "overdue", "week", "todo", "later", "done"];
+const ORDER: ColumnId[] = ["today", "overdue", "week", "later"];
+const CHIPS: ColumnId[] = ["todo", "done"];
 
 export interface TilesView {
   ctx: Ctx; items: Item[]; people: string[]; who: string | null;
@@ -48,7 +51,7 @@ export interface TilesView {
 }
 
 export function renderTiles(v: TilesView, env: Env): TemplateResult {
-  const s = tileSummary(v.items, v.ctx, env.parents);
+  const s = tileSummary(v.items, v.ctx);
   const open = v.items.filter((i) => i.status === "needs_action");
   return html`<div class="tiles-view">
     <div class="people ${v.who ? "has-filter" : ""}" role="group" aria-label=${t(env.lang, "filter_people")}>
@@ -60,7 +63,7 @@ export function renderTiles(v: TilesView, env: Env): TemplateResult {
     </div>
     <div class="tiles">
       ${ORDER.filter((c) => v.ctx.enabled.has(c)).map((c) => {
-        const wide = c === "today" || c === "done";
+        const wide = c === "today" || c === "week";
         const badge = c === "today" ? s.overdue : 0;
         return html`<button class="tile ${wide ? "wide" : ""} ${colorClass(TILE_META[c].color)}" type="button" data-tile=${c} @click=${() => v.onTile(c)}>
           <span class="row">
@@ -69,10 +72,15 @@ export function renderTiles(v: TilesView, env: Env): TemplateResult {
             ${badge > 0 ? html`<span class="pill c-red">${tn(env.lang, "sum_overdue", badge)}</span>` : nothing}
           </span>
           <span class="tile-count">${s.counts[c]}</span>
-          ${c === "today" ? html`<span class="preview">${s.preview.map((i) => html`<span class="row">
+          ${wide ? html`<span class="preview">${(c === "today" ? s.preview : s.weekPreview).map((i) => html`<span class="row">
             <span class="mark"></span><span class="t">${i.summary}</span>${i.assignee ? avatar(env.hass, i.assignee, "xs", true) : nothing}</span>`)}</span>` : nothing}
         </button>`;
       })}
+    </div>
+    <div class="qchips">
+      ${CHIPS.filter((c) => v.ctx.enabled.has(c)).map((c) => html`<button class="qchip ${colorClass(TILE_META[c].color)}" type="button" data-tile=${c} @click=${() => v.onTile(c)}>
+        <span class="dot"><ha-icon .icon=${TILE_META[c].icon}></ha-icon></span>
+        <span class="qlabel">${t(env.lang, `col_${c}` as Key)}</span><span class="qcount">${s.counts[c]}</span></button>`)}
     </div>
     <span class="dlg-label tiles-h">${t(env.lang, "lists")}</span>
     <div class="plist">

@@ -5,7 +5,7 @@ import type { Board } from "../src/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const parents = ["household", "garden"].map((id) => ({ id, entity_id: `todo.${id}`, name: id, icon: "mdi:home", color: "blue", collapse: false }));
+const parents = ["household", "garden"].map((id) => ({ id, entity_id: `todo.${id}`, name: id, icon: "mdi:home", color: "blue", checklist: false }));
 const board = (): Board => ({ parents, items: [], end_of_day_mode: "keep" });
 
 const RAW = { type: "custom:household-kanban-card", columns: ["todo", "week", "today", "done"], grid_options: { columns: "full", rows: 8 } };

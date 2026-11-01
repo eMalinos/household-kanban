@@ -11,8 +11,8 @@ const item = (uid: string, o: Partial<Item> = {}): Item => ({
 });
 const board = (items: Item[]): Board => ({
   parents: [
-    { id: "household", entity_id: "todo.household", name: "Household", icon: "mdi:home", color: "blue", collapse: false },
-    { id: "shop", entity_id: "todo.shop", name: "Shopping", icon: "mdi:cart", color: "green", collapse: true },
+    { id: "household", entity_id: "todo.household", name: "Household", icon: "mdi:home", color: "blue", checklist: false },
+    { id: "shop", entity_id: "todo.shop", name: "Shopping", icon: "mdi:cart", color: "green", checklist: true },
   ],
   items, end_of_day_mode: "keep",
 });
@@ -62,11 +62,16 @@ describe("narrow layout", () => {
     expect(q(".tiles")).toBeNull();
   });
 
-  test("Today tile opens a sheet with a collapsed shopping stack; Esc and backdrop close it", async () => {
+  test("the header wraps its buttons below the title only when narrow", async () => {
+    expect(q("header")?.classList.contains("narrow")).toBe(true);
+    resize(900); await settle();
+    expect(q("header")?.classList.contains("narrow")).toBe(false);
+  });
+
+  test("Today tile opens a sheet with every note as a card; Esc and backdrop close it", async () => {
     q('.tile[data-tile="today"]')!.click(); await settle();
     expect(q(".sheet")).toBeTruthy();
-    expect(root().querySelectorAll(".sheet article[data-uid]").length).toBe(1);
-    expect(q(".sheet .stack-head")?.textContent).toBe("Shopping");
+    expect(root().querySelectorAll(".sheet article[data-uid]").length).toBe(3);
     q(".sheet")!.dispatchEvent(new Event("cancel", { cancelable: true })); await settle();
     expect(q(".sheet")).toBeNull();
     q('.tile[data-tile="today"]')!.click(); await settle();
@@ -77,7 +82,6 @@ describe("narrow layout", () => {
   test("parent row opens that parent's items as plain rows", async () => {
     q('.prow[data-parent="shop"]')!.click(); await settle();
     expect([...root().querySelectorAll(".sheet article[data-uid]")].map((e) => (e as HTMLElement).dataset.uid)).toEqual(["m1", "m2"]);
-    expect(q(".sheet .stack-head")).toBeNull();
   });
 
   test("long press opens the move menu and applies the move; the trailing click is not a tap", async () => {

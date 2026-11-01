@@ -5,7 +5,7 @@ import type { Board } from "../src/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const parents = ["household", "garden"].map((id) => ({ id, entity_id: `todo.${id}`, name: id, icon: "mdi:home", color: "blue", collapse: false }));
+const parents = ["household", "garden"].map((id) => ({ id, entity_id: `todo.${id}`, name: id, icon: "mdi:home", color: "blue", checklist: false }));
 const board = (): Board => ({ parents, items: [], end_of_day_mode: "raise" });
 const SETTINGS = {
   end_of_day_mode: "raise", close_time: "23:59", notify_enabled: true, notify_time: "08:00", notify_assignee: true,
@@ -148,7 +148,7 @@ describe("list editing", () => {
     click(".kb-settings .parent-form .save-parent");
     await settle();
     expect(of("household_kanban/parents/add")).toEqual([
-      { type: "household_kanban/parents/add", name: "Garden 2", icon: "mdi:format-list-checks", color: "green", collapse: false },
+      { type: "household_kanban/parents/add", name: "Garden 2", icon: "mdi:format-list-checks", color: "green", checklist: false },
     ]);
     expect($(".kb-settings .parent-form")).toBeNull();
   });
@@ -179,7 +179,7 @@ describe("list editing", () => {
     await settle();
     click(".kb-settings .parent-form .save-parent");
     await settle();
-    expect(of("household_kanban/parents/update")).toEqual([{ type: "household_kanban/parents/update", parent_id: "garden", collapse: true }]);
+    expect(of("household_kanban/parents/update")).toEqual([{ type: "household_kanban/parents/update", parent_id: "garden", checklist: true }]);
   });
 
   test("remove asks for target and sends parents/remove", async () => {

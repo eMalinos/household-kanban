@@ -42,7 +42,7 @@ def _parent_dict(registry: er.EntityRegistry, p) -> dict[str, Any]:
         "name": p.name,
         "icon": p.icon,
         "color": p.color,
-        "collapse": p.collapse,
+        "checklist": p.checklist,
     }
 
 
@@ -181,7 +181,7 @@ def ws_settings_update(hass: HomeAssistant, connection, msg: dict) -> None:
         vol.Required("name"): NAME,
         vol.Required("icon"): str,
         vol.Required("color"): vol.In(PARENT_COLORS),
-        vol.Required("collapse"): bool,
+        vol.Required("checklist"): bool,
     }
 )
 @websocket_api.require_admin
@@ -191,7 +191,7 @@ async def ws_parents_add(hass: HomeAssistant, connection, msg: dict) -> None:
     if (entry := _entry_or_error(hass, connection, msg)) is None:
         return
     parent = await entry.runtime_data.async_add_parent(
-        msg["name"], msg["icon"], msg["color"], msg["collapse"]
+        msg["name"], msg["icon"], msg["color"], msg["checklist"]
     )
     connection.send_result(msg["id"], _parent_dict(er.async_get(hass), parent))
 
@@ -203,20 +203,20 @@ async def ws_parents_add(hass: HomeAssistant, connection, msg: dict) -> None:
         vol.Optional("name"): NAME,
         vol.Optional("icon"): str,
         vol.Optional("color"): vol.In(PARENT_COLORS),
-        vol.Optional("collapse"): bool,
+        vol.Optional("checklist"): bool,
     }
 )
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_parents_update(hass: HomeAssistant, connection, msg: dict) -> None:
-    """Change name, icon, color or collapse of a list."""
+    """Change name, icon, color or checklist flag of a list."""
     if (entry := _entry_or_error(hass, connection, msg)) is None:
         return
     store = entry.runtime_data
     if all(p.id != msg["parent_id"] for p in store.parents):
         connection.send_error(msg["id"], "not_found", "Unknown list")
         return
-    fields = {k: msg[k] for k in ("name", "icon", "color", "collapse") if k in msg}
+    fields = {k: msg[k] for k in ("name", "icon", "color", "checklist") if k in msg}
     parent = await store.async_update_parent(msg["parent_id"], **fields)
     connection.send_result(msg["id"], _parent_dict(er.async_get(hass), parent))
 
