@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import date, datetime, time, timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
@@ -14,11 +14,14 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_CLOSE_TIME,
     CONF_END_OF_DAY_MODE,
+    CONF_NOTIFY_TIME,
     DEFAULT_CLOSE_TIME,
     DEFAULT_END_OF_DAY_MODE,
+    DEFAULT_NOTIFY_TIME,
     EVENT_DAY_CLOSED,
     SIGNAL_BOARD_CHANGED,
 )
+from .notify import async_handle_action, async_send_latest
 from .rollover import archive_due, close_day
 from .store import RunSummary
 
@@ -27,6 +30,10 @@ EVENT_ITEM_KEYS = ("uid", "summary", "parent", "assignee", "priority", "due")
 
 def _close_time(entry: ConfigEntry) -> time:
     return time.fromisoformat(entry.options.get(CONF_CLOSE_TIME, DEFAULT_CLOSE_TIME))
+
+
+def _notify_time(entry: ConfigEntry) -> time:
+    return time.fromisoformat(entry.options.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME))
 
 
 def last_due_day(now: datetime, close: time) -> date:
@@ -79,27 +86,53 @@ async def async_close_due(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Catch up missed closes, then arm the daily timer; re-arm on options change."""
-    unsub: CALLBACK_TYPE | None = None
+    """Catch up missed work, arm the daily timers; re-arm on options change."""
+    unsubs: list[CALLBACK_TYPE] = []
 
-    async def tick(_now: datetime) -> None:
+    async def close_tick(_now: datetime) -> None:
         await async_close_due(hass, entry)
 
+    async def notify_tick(_now: datetime | None = None) -> None:
+        await async_close_due(hass, entry)  # a notify time equal to close time
+        await async_send_latest(hass, entry)
+
+    async def catch_up_notify() -> None:
+        # A notify time that passed while HA was down (or was just changed).
+        if dt_util.now().time() >= _notify_time(entry):
+            await notify_tick()
+
+    def disarm() -> None:
+        while unsubs:
+            unsubs.pop()()
+
     def arm() -> None:
-        nonlocal unsub
-        if unsub:
-            unsub()
-        close = _close_time(entry)
-        unsub = async_track_time_change(
-            hass, tick, hour=close.hour, minute=close.minute, second=0
+        disarm()
+        close, notify = _close_time(entry), _notify_time(entry)
+        unsubs.append(
+            async_track_time_change(
+                hass, close_tick, hour=close.hour, minute=close.minute, second=0
+            )
+        )
+        unsubs.append(
+            async_track_time_change(
+                hass, notify_tick, hour=notify.hour, minute=notify.minute, second=0
+            )
         )
 
     async def options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
         arm()
         await async_close_due(hass, entry)  # an earlier close time may be past
+        await catch_up_notify()
         async_dispatcher_send(hass, SIGNAL_BOARD_CHANGED)
 
+    async def on_action(event: Event) -> None:
+        await async_handle_action(hass, entry, event)
+
     await async_close_due(hass, entry)
+    await catch_up_notify()
     arm()
-    entry.async_on_unload(lambda: unsub and unsub())
+    entry.async_on_unload(disarm)
     entry.async_on_unload(entry.add_update_listener(options_updated))
+    entry.async_on_unload(
+        hass.bus.async_listen("mobile_app_notification_action", on_action)
+    )

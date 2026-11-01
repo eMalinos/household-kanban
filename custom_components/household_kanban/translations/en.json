@@ -15,7 +15,8 @@
       "init": {
         "title": "Household Kanban",
         "menu_options": {
-          "end_of_day": "End of day"
+          "end_of_day": "End of day",
+          "notifications": "Notifications"
         }
       },
       "end_of_day": {
@@ -28,6 +29,20 @@
         "data_description": {
           "end_of_day_mode": "Keep: nothing changes. Mark overdue: items are shown as overdue. Move: the due moves to the next day, same time. Raise: the priority goes up one step.",
           "close_time": "When the day closes (local time)."
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "A morning summary of what the end of day changed, with action buttons.",
+        "data": {
+          "notify_enabled": "Send notifications",
+          "notify_time": "Notify time",
+          "notify_assignee": "Notify assignees on their own phone",
+          "notify_services": "Notify services"
+        },
+        "data_description": {
+          "notify_assignee": "Items of a person without a phone go to the selected services.",
+          "notify_services": "Phones that get unassigned items (and items of people without a phone)."
         }
       }
     }

@@ -15,7 +15,8 @@
       "init": {
         "title": "Household Kanban",
         "menu_options": {
-          "end_of_day": "Konec dne"
+          "end_of_day": "Konec dne",
+          "notifications": "Oznámení"
         }
       },
       "end_of_day": {
@@ -28,6 +29,20 @@
         "data_description": {
           "end_of_day_mode": "Ponechat: nic se nemění. Označit jako po termínu: úkoly se zobrazí jako po termínu. Posunout: termín se posune na další den ve stejný čas. Zvýšit prioritu: priorita se zvýší o jeden stupeň.",
           "close_time": "Kdy se den uzavře (místní čas)."
+        }
+      },
+      "notifications": {
+        "title": "Oznámení",
+        "description": "Ranní souhrn změn po konci dne s tlačítky akcí.",
+        "data": {
+          "notify_enabled": "Posílat oznámení",
+          "notify_time": "Čas oznámení",
+          "notify_assignee": "Oznamovat řešitelům na jejich telefon",
+          "notify_services": "Oznamovací služby"
+        },
+        "data_description": {
+          "notify_assignee": "Úkoly osoby bez telefonu jdou na vybrané služby.",
+          "notify_services": "Telefony, které dostanou nepřiřazené úkoly (a úkoly lidí bez telefonu)."
         }
       }
     }

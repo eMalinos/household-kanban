@@ -183,6 +183,10 @@ class KanbanStore:
             self.archive[uid] = self.items.pop(uid)
         await self._async_changed()
 
+    async def async_save_runs(self) -> None:
+        """Persist run flags (notified) without notifying listeners."""
+        await self._async_save()
+
     async def async_set_last_close(self, day: date) -> None:
         self.last_close = day
         await self._async_save()
