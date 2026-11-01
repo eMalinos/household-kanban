@@ -5,6 +5,7 @@ import { addDays, dueTime, parseDue, startOfDay, toDue, ymd } from "../logic/dat
 import { t, type Key } from "../i18n";
 import type { Item, Parent, Priority } from "../types";
 import { avatar, parentDot, personName } from "./item-card";
+import { applyFormat, renderNote, type Format } from "./note";
 
 /** Editable copy of a task; `uid` unset = a new one. */
 export interface Draft {
@@ -14,6 +15,8 @@ export interface Draft {
   parent: string; summary: string;
   /** The note part of the description; `lines` is its checklist, kept in serialized order. */
   description: string; lines: Line[];
+  /** Showing the rendered note instead of the textarea. */
+  preview: boolean;
   priority: Priority; assignee: string | null;
   date: string; time: string;
   confirmDelete: boolean;
@@ -22,14 +25,14 @@ export interface Draft {
 export function draftOf(item: Item): Draft {
   const { note, lines } = split(item.description);
   return {
-    uid: item.uid, status: item.status, heading: item.summary, parent: item.parent, summary: item.summary, description: note, lines: order(lines),
+    uid: item.uid, status: item.status, heading: item.summary, parent: item.parent, summary: item.summary, description: note, lines: order(lines), preview: note !== "",
     priority: item.priority, assignee: item.assignee,
     date: item.due ? ymd(parseDue(item.due).date) : "", time: dueTime(item.due), confirmDelete: false,
   };
 }
 
 export function emptyDraft(parent: string, preset: Partial<Pick<Draft, "date" | "priority">> = {}): Draft {
-  return { status: "needs_action", heading: "", parent, summary: "", description: "", lines: [], priority: 2, assignee: null, date: "", time: "", confirmDelete: false, ...preset };
+  return { status: "needs_action", heading: "", parent, summary: "", description: "", lines: [], preview: false, priority: 2, assignee: null, date: "", time: "", confirmDelete: false, ...preset };
 }
 
 export function fieldsOf(d: Draft): ItemFields & { summary: string } {
@@ -95,9 +98,21 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
 
       ${d.lines.length || e.parents.find((p) => p.id === d.parent)?.checklist ? renderList(d, e) : nothing}
 
-      <label class="field"><span class="dlg-label">${L("f_note")}</span>
-        <textarea rows="3" .value=${d.description} placeholder=${L("f_note_ph")}
-          @input=${(ev: Event) => e.onChange({ description: (ev.target as HTMLTextAreaElement).value })}></textarea></label>
+      <div class="field">
+        <div class="row"><span class="dlg-label grow">${L("f_note")}</span>
+          ${d.preview ? nothing : FORMATS.map(([k, label]) => html`<button class="fmt-btn" type="button" data-fmt=${k} aria-label=${L(`fmt_${k}` as Key)}
+            @click=${(ev: Event) => format(ev, k, e)}>${label}</button>`)}
+          <span class="seg2" role="group">
+            <button class="pill-btn ${d.preview ? "" : "on"}" type="button" aria-pressed=${!d.preview} @click=${() => e.onChange({ preview: false })}>${L("note_edit")}</button>
+            <button class="pill-btn ${d.preview ? "on" : ""}" type="button" aria-pressed=${d.preview} @click=${() => e.onChange({ preview: true })}>${L("note_preview")}</button>
+          </span></div>
+        ${d.preview ? renderNote(d.description) : html`<textarea rows="3" aria-label=${L("f_note")} .value=${d.description} placeholder=${L("f_note_ph")}
+          @input=${(ev: Event) => e.onChange({ description: (ev.target as HTMLTextAreaElement).value })}
+          @keydown=${(ev: KeyboardEvent) => {
+            const k = ev.key.toLowerCase();
+            if ((ev.ctrlKey || ev.metaKey) && (k === "b" || k === "i")) { ev.preventDefault(); format(ev, k === "b" ? "bold" : "italic", e); }
+          }}></textarea>`}
+      </div>
 
       <div class="field"><span class="dlg-label">${L("f_parent")}</span>
         <div class="chips" role="radiogroup" aria-label=${L("f_parent")}>
@@ -143,6 +158,21 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
       </div>
     </div>
   </dialog>`;
+}
+
+const FORMATS: [Format, TemplateResult | string][] = [
+  ["bold", html`<b>B</b>`], ["italic", html`<i>I</i>`], ["bullets", "•"], ["link", "🔗"],
+];
+
+/** Apply a toolbar format to the note textarea and restore its selection. */
+function format(ev: Event, kind: Format, e: DialogEnv): void {
+  const ta = (ev.currentTarget as HTMLElement).closest(".field")?.querySelector("textarea");
+  if (!ta) return;
+  const r = applyFormat(ta.value, ta.selectionStart, ta.selectionEnd, kind);
+  ta.value = r.value;
+  ta.focus();
+  ta.setSelectionRange(r.start, r.end);
+  e.onChange({ description: r.value });
 }
 
 const X = html`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>`;

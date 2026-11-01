@@ -85,8 +85,10 @@ test("in the dialog, Add item + Enter adds a row and Save sends the joined descr
   await settle();
   cardEl("a").querySelector<HTMLElement>(".title")!.click();
   await settle();
-  const ta = dialog()!.querySelector("textarea") as HTMLTextAreaElement;
-  expect(ta.value).toBe("note");
+  expect(dialog()!.querySelector(".note")?.textContent).toBe("note");
+  btn(/^\s*Edit\s*$/, dialog()!).click();
+  await settle();
+  expect((dialog()!.querySelector("textarea") as HTMLTextAreaElement).value).toBe("note");
   const input = dialog()!.querySelector(".cl-add input") as HTMLInputElement;
   input.focus();
   input.value = "bread";

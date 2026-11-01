@@ -97,6 +97,12 @@ export const styles = css`
   .cl-row[aria-checked="true"] .cl-box, .cl-check[aria-checked="true"] { border: 0; background: rgb(var(--c-green)); color: #fff; }
   .cl-row[aria-checked="true"] .cl-t, .cl-item.done .cl-text { color: var(--kb-text-2); text-decoration: line-through; }
   .cl-more { align-self: flex-start; }
+  .note { font-size: 13px; line-height: 1.4; color: var(--kb-text-2); overflow-wrap: anywhere; }
+  .note.clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+  .note.plain { white-space: pre-wrap; }
+  .note ha-markdown { display: block; }
+  .fmt-btn { border: 1px solid var(--kb-border); background: var(--kb-fill); color: inherit; border-radius: 8px; min-width: 30px; height: 28px; font: inherit; font-size: 13px; cursor: pointer; }
+  .seg2 { display: inline-flex; gap: 4px; margin-left: 6px; }
   .cl-alldone { display: flex; align-items: center; gap: 8px; padding: 4px; font-size: 13px; font-weight: 600; color: rgb(var(--c-green)); }
   .cl-alldone span { flex: 1; }
   .cl-box-list { display: flex; flex-direction: column; padding: 4px; border-radius: 16px; background: var(--kb-fill); box-shadow: var(--kb-inset); }

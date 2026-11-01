@@ -4,6 +4,7 @@ import { diffDays, parseDue, startOfDay } from "../logic/dates";
 import { join, order, progress, split, toggle, type Line } from "../logic/checklist";
 import { t, type Key } from "../i18n";
 import type { Item, Parent } from "../types";
+import { renderNote } from "./note";
 
 /** What every renderer needs from the card. */
 export interface Env {
@@ -22,7 +23,7 @@ export interface Env {
 }
 
 /** Controls on a card that neither open the dialog nor start a drag. */
-export const NO_OPEN = ".check, .cl button";
+export const NO_OPEN = ".check, .cl button, .note a";
 
 /** Open lines shown on a collapsed card. */
 const SHOWN = 5;
@@ -100,6 +101,7 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
       <button class="title" type="button">${item.summary}</button>
       ${p.total ? html`<span class="pill c-green cl-progress">${p.done}/${p.total}</span>` : nothing}
     </div>
+    ${note ? renderNote(note, { clamp: 3 }) : nothing}
     ${p.total ? renderLines(item, note, lines, env) : nothing}
     <div class="pills">
       ${!done && showPriority ? html`<span class="pill prio-${item.priority} ${colorClass(["", "red", "orange", "grey"][item.priority])}">${flag}${t(env.lang, `prio_${item.priority}` as "prio_1")}</span>` : nothing}
