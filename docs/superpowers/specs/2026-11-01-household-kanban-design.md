@@ -72,3 +72,13 @@ It must feel good to use: the Bento theme look (Slate preset first), fast to add
 - Container-query breakpoint between board and tiles.
 - Precise wording of notifications and the summary event payload.
 - Store schema versioning/migrations.
+
+## v1.1: settings from the board
+
+Visual design: canvas page v6 (`Settings6`, `Main6*`, `Mobile6`). Plan: `docs/superpowers/plans/2026-11-01-settings-dialog.md`.
+
+- A gear button on the card (admins only) opens a settings dialog with three tabs; a banner under the tabs says where the tab applies.
+- **Board** (this dashboard only): enabled columns, Done retention, grouping, week end. Saved into this card's config in the dashboard, so a kitchen tablet and a phone can differ. *(user decision)*
+- **Lists & people**: which parents and people this dashboard shows (this dashboard only); adding, renaming, recolouring and removing a list applies to the whole household.
+- **End of day & notifications** (whole household): the same values as the integration options; both places stay editable.
+- Card editor and options flow keep working; the dialog is a shortcut, not a replacement. *(builder's call)*
