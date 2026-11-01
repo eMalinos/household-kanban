@@ -30,8 +30,13 @@ def _close_time(entry: ConfigEntry) -> time:
 
 
 def last_due_day(now: datetime, close: time) -> date:
-    """The most recent day whose close moment has passed (local time)."""
-    return now.date() if now.time() >= close else now.date() - timedelta(days=1)
+    """The most recent day whose close moment has passed (local time).
+
+    A close time before 12:00 belongs to the previous calendar day (01:00 on
+    11-02 closes 11-01); from 12:00 on it closes the current day.
+    """
+    day = now.date() if now.time() >= close else now.date() - timedelta(days=1)
+    return day - timedelta(days=1) if close < time(12) else day
 
 
 async def async_close_due(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -66,7 +71,7 @@ async def async_close_due(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 "run_id": result.run_id,
                 "day": day.isoformat(),
                 "mode": mode,
-                "items": items,
+                "items": [dict(i) for i in items],  # not the persisted run's dicts
             },
         )
     if archived := archive_due(store.items.values(), now):

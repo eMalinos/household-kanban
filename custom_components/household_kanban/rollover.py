@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .const import STATUS_COMPLETED, STATUS_NEEDS_ACTION
@@ -38,9 +38,10 @@ def _next_day(due: str, day: date, now: datetime) -> str:
         return target.isoformat()
     local = datetime.fromisoformat(due).astimezone(now.tzinfo)
     # replace() keeps the wall clock; the zone recomputes the offset (DST).
-    return local.replace(
-        year=target.year, month=target.month, day=target.day
-    ).isoformat()
+    # The UTC round trip normalises a time in a spring-forward gap (02:30 ->
+    # 03:30); astimezone() to the same tzinfo would return it unchanged.
+    moved = local.replace(year=target.year, month=target.month, day=target.day)
+    return moved.astimezone(UTC).astimezone(now.tzinfo).isoformat()
 
 
 def close_day(

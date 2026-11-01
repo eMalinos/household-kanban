@@ -88,3 +88,11 @@ def test_archive_after_30_days():
 
     items = [done("old", 31), done("new", 29), _item("open")]
     assert archive_due(items, NOW) == ["old"]
+
+
+def test_move_into_spring_forward_gap_gets_valid_offset():
+    # 2027-03-28 02:00-03:00 does not exist in Prague.
+    now = datetime(2027, 3, 27, 23, 59, tzinfo=PRAGUE)
+    item = _item("a", due="2027-03-27T02:30:00+01:00")
+    result = close_day([item], date(2027, 3, 27), "move", now)
+    assert result.changes["a"]["due"] == "2027-03-28T03:30:00+02:00"

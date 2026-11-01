@@ -194,3 +194,46 @@ async def test_options_defaults(hass, hass_storage, freezer):
     )
     defaults = {str(k): k.default() for k in result["data_schema"].schema if k.default}
     assert defaults == {"end_of_day_mode": "raise", "close_time": "23:59"}
+
+
+async def test_close_after_midnight_closes_previous_day(hass, hass_storage, freezer):
+    freezer.move_to(datetime(2026, 11, 1, 20, 0, tzinfo=PRAGUE))
+    _stored(
+        hass_storage,
+        last_close="2026-10-31",
+        items=[
+            _item("today", due="2026-11-01"),
+            _item("tomorrow", due="2026-11-02T18:00:00+01:00"),
+        ],
+    )
+    events = async_capture_events(hass, EVENT)
+    entry = await _setup(hass, {"end_of_day_mode": "move", "close_time": "01:00"})
+    assert events == []
+
+    at = datetime(2026, 11, 2, 1, 0, tzinfo=PRAGUE)
+    freezer.move_to(at)
+    async_fire_time_changed(hass, at)
+    await hass.async_block_till_done()
+    store = entry.runtime_data
+    assert [e.data["day"] for e in events] == ["2026-11-01"]
+    assert store.items["today"].due == "2026-11-02"
+    assert store.items["tomorrow"].due == "2026-11-02T18:00:00+01:00"
+    assert store.items["tomorrow"].moved == 0
+
+
+async def test_catch_up_before_early_close_time(hass, hass_storage, freezer):
+    freezer.move_to(datetime(2026, 11, 2, 0, 30, tzinfo=PRAGUE))
+    _stored(hass_storage, last_close="2026-10-31")
+    events = async_capture_events(hass, EVENT)
+    entry = await _setup(hass, {"close_time": "01:00"})
+    assert events == [] and entry.runtime_data.last_close == date(2026, 10, 31)
+
+
+async def test_run_and_event_items_are_separate_lists(hass, hass_storage, freezer):
+    freezer.move_to(datetime(2026, 11, 1, 23, 59, 30, tzinfo=PRAGUE))
+    _stored(hass_storage, last_close="2026-10-31", items=[_item("a", due="2026-11-01")])
+    events = async_capture_events(hass, EVENT)
+    entry = await _setup(hass)
+    [run] = entry.runtime_data.runs.values()
+    assert run.items == events[0].data["items"]
+    assert run.items is not events[0].data["items"]
