@@ -23,6 +23,8 @@ const en = {
   hist_empty: "Nothing found", hist_more: "Load more", hist_last_week: "Last week", reopen: "Reopen",
   err_history: "Could not load the history.", err_reopen: "Could not reopen the task.",
   lists: "Lists", move_to: "Move to…", older_history: "Older in history ({n})",
+  ed_columns: "Columns", ed_done_days: "Keep done on the board (days)", ed_week_end: "Week ends",
+  ed_auto: "Automatic (locale)", ed_saturday: "Saturday", ed_sunday: "Sunday",
 };
 const cs: typeof en = {
   title: "Úkoly",
@@ -49,6 +51,8 @@ const cs: typeof en = {
   hist_empty: "Nic nenalezeno", hist_more: "Načíst další", hist_last_week: "Minulý týden", reopen: "Znovu otevřít",
   err_history: "Historii se nepodařilo načíst.", err_reopen: "Úkol se nepodařilo znovu otevřít.",
   lists: "Seznamy", move_to: "Přesunout do…", older_history: "Starší v historii ({n})",
+  ed_columns: "Sloupce", ed_done_days: "Hotové nechat na boardu (dny)", ed_week_end: "Týden končí",
+  ed_auto: "Automaticky (dle jazyka)", ed_saturday: "V sobotu", ed_sunday: "V neděli",
 };
 
 export type Key = keyof typeof en;

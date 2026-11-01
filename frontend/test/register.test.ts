@@ -37,13 +37,13 @@ test("customCards gets one entry per import", async () => {
   expect((window.customCards ?? []).filter((c) => c.type === NAME)).toHaveLength(1);
 });
 
-test("a define that throws is logged once, not repeatedly", async () => {
+test("a define that throws is logged once per element (card + editor), not repeatedly", async () => {
   const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   await import("../src/card");
   const bad = { get: () => undefined, define: () => { throw new Error("already defined"); }, whenDefined: async () => undefined };
   Object.defineProperty(window, "customElements", { value: bad, configurable: true, writable: true });
   vi.advanceTimersByTime(2000);
-  expect(warn.mock.calls.filter((c) => String(c[0]).includes("household_kanban"))).toHaveLength(1);
+  expect(warn.mock.calls.filter((c) => String(c[0]).includes("household_kanban"))).toHaveLength(2);
 });
 
 test("assigning a new registry defines the card synchronously", async () => {

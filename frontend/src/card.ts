@@ -6,6 +6,8 @@ import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
 import { retryDelay } from "./logic/retry";
 import { keepDefined } from "./register";
+import { normalizeConfig, type CardConfig } from "./config";
+import "./editor";
 import { t, tn, type Key } from "./i18n";
 import { styles } from "./styles";
 import type { Board, Item, Priority } from "./types";
@@ -19,17 +21,7 @@ import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
 import type { Env } from "./ui/item-card";
 
-export interface CardConfig {
-  type: string;
-  columns?: ColumnId[];
-  done_days?: 1 | 3 | 7 | 30;
-  group?: "date" | "priority";
-  parents?: string[];
-  people?: string[];
-  week_end?: "auto" | "saturday" | "sunday";
-}
 
-const DEFAULT_COLUMNS: ColumnId[] = ["todo", "week", "today", "done"];
 const HISTORY_PAGE = 50;
 const NARROW_PX = 600;
 const LONG_PRESS_MS = 500;
@@ -94,7 +86,11 @@ class HouseholdKanbanCard extends LitElement {
     this.addEventListener("pointerdown", (e) => { this._down = { x: e.clientX, y: e.clientY, t: e.timeStamp }; }, true);
   }
 
-  setConfig(config: CardConfig): void {
+  static getConfigElement(): HTMLElement { return document.createElement("household-kanban-card-editor"); }
+  static getStubConfig(): CardConfig { return normalizeConfig({ type: "custom:household-kanban-card" }); }
+
+  setConfig(raw: CardConfig): void {
+    const config = normalizeConfig(raw);
     this._config = config;
     this._filter = { ...this._filter, group: config.group ?? "date" };
   }
@@ -414,7 +410,7 @@ class HouseholdKanbanCard extends LitElement {
 
     const now = new Date();
     const parents = board.parents.filter((p) => !cfg.parents || cfg.parents.includes(p.id));
-    const enabled = new Set<ColumnId>(cfg.columns ?? DEFAULT_COLUMNS);
+    const enabled = new Set<ColumnId>(cfg.columns ?? []);
     enabled.add("todo");
     if (board.end_of_day_mode === "overdue") enabled.add("overdue");
     const ctx: Ctx = {
