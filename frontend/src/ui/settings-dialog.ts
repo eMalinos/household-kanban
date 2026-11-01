@@ -269,10 +269,10 @@ function listsTab(d: CardConfig, form: ParentForm | undefined, e: SettingsEvents
 
 export function renderSettings(s: SettingsState, e: SettingsEvents): TemplateResult {
   const L = (k: Key) => t(e.lang, k);
-  // an open list form closes first (Escape, Cancel, the X, the backdrop); the dialog on the next try
-  const close = () => (s.form ? e.onForm(undefined) : e.onClose());
-  const onBackdrop = (ev: Event) => { if (ev.target === ev.currentTarget) close(); };
   const pending = formDirty(s.form, e.parents);
+  // Escape closes an open list form first; Cancel, the X and the backdrop only do so when it has unsaved changes
+  const close = () => (pending ? e.onForm(undefined) : e.onClose());
+  const onBackdrop = (ev: Event) => { if (ev.target === ev.currentTarget) close(); };
   const body = s.tab === "board" ? html`${scope(e.lang, false, "scope_dashboard_hint")}${boardTab(s.draft, e)}`
     : s.tab === "lists" ? html`${scope(e.lang, false, "scope_lists_hint")}${listsTab(s.draft, s.form, e)}`
       : html`${scope(e.lang, true, "scope_household_hint")}${eodTab(s, e)}`;

@@ -294,6 +294,17 @@ describe("polish", () => {
     expect($("dialog.kb-settings")).toBeNull();
   });
 
+  test("Cancel closes the dialog at once when the open list form is unchanged", async () => {
+    await make();
+    await tab("lists");
+    click('.kb-settings .edit-list[data-parent="garden"]');
+    await settle();
+    expect($(".kb-settings .parent-form")).not.toBeNull();
+    click(".kb-settings .dlg-foot .pill-btn");
+    await settle();
+    expect($("dialog.kb-settings")).toBeNull();
+  });
+
   test("tabs are wired to the panel and move with the arrow keys", async () => {
     await make();
     const board = $('.kb-settings [role="tab"][data-tab="board"]') as HTMLElement;

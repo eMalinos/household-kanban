@@ -142,6 +142,16 @@ test("a toolbar edit replaces only the changed range, so native undo keeps worki
   expect(calls).toEqual([["update_item", { uid: "a", description: "a *word* b\n\n- [ ] milk" }]]);
 });
 
+test("a format that changes nothing leaves the note, selection and undo stack alone", async () => {
+  const ta = await editNote("\n\n");
+  const spy = vi.spyOn(ta, "setRangeText");
+  ta.setSelectionRange(0, 2);
+  dialog().querySelector<HTMLButtonElement>('button[data-fmt="bullets"]')!.click();
+  expect(spy).not.toHaveBeenCalled();
+  expect(ta.value).toBe("\n\n");
+  expect([ta.selectionStart, ta.selectionEnd]).toEqual([0, 2]);
+});
+
 test("Ctrl+B formats, Ctrl+Shift+B and Ctrl+Alt+B do not", async () => {
   const ta = await editNote("word");
   ta.setSelectionRange(0, 4);

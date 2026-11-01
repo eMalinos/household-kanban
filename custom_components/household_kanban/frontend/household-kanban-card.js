@@ -3040,6 +3040,7 @@ function Zo(o, e) {
   const t = (l = o.currentTarget.closest(".field")) == null ? void 0 : l.querySelector("textarea");
   if (!t) return;
   const n = t.value, i = ar(n, t.selectionStart, t.selectionEnd, e);
+  if (i.value === n) return;
   let r = 0, s = 0;
   for (; r < n.length && r < i.value.length && n[r] === i.value[r]; ) r++;
   for (; s < n.length - r && s < i.value.length - r && n[n.length - 1 - s] === i.value[i.value.length - 1 - s]; ) s++;
@@ -3459,18 +3460,18 @@ function Xr(o, e, t) {
     </section>`;
 }
 function Gr(o, e) {
-  const t = (a) => m(e.lang, a), n = () => o.form ? e.onForm(void 0) : e.onClose(), i = (a) => {
-    a.target === a.currentTarget && n();
-  }, r = qr(o.form, e.parents), s = o.tab === "board" ? h`${eo(e.lang, !1, "scope_dashboard_hint")}${Br(o.draft, e)}` : o.tab === "lists" ? h`${eo(e.lang, !1, "scope_lists_hint")}${Xr(o.draft, o.form, e)}` : h`${eo(e.lang, !0, "scope_household_hint")}${Yr(o, e)}`;
+  const t = (a) => m(e.lang, a), n = qr(o.form, e.parents), i = () => n ? e.onForm(void 0) : e.onClose(), r = (a) => {
+    a.target === a.currentTarget && i();
+  }, s = o.tab === "board" ? h`${eo(e.lang, !1, "scope_dashboard_hint")}${Br(o.draft, e)}` : o.tab === "lists" ? h`${eo(e.lang, !1, "scope_lists_hint")}${Xr(o.draft, o.form, e)}` : h`${eo(e.lang, !0, "scope_household_hint")}${Yr(o, e)}`;
   return h`<dialog class="kb-dialog kb-settings ${o.narrow ? "narrow" : ""}" aria-labelledby="kb-set-title" @close=${e.onClose}
     @cancel=${(a) => {
     o.form && (a.preventDefault(), e.onForm(void 0));
-  }} @click=${i}>
+  }} @click=${r}>
     <div class="dlg">
       <div class="dlg-head">
         <div class="grow"><span class="dlg-kicker">Household Kanban</span>
           <h2 id="kb-set-title" class="hist-title">${t("settings")}</h2></div>
-        <button class="round-btn" type="button" aria-label=${t("close")} @click=${n}>
+        <button class="round-btn" type="button" aria-label=${t("close")} @click=${i}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
         </button>
       </div>
@@ -3481,10 +3482,10 @@ function Gr(o, e) {
       <div class="set-body" id="kb-panel" role="tabpanel" aria-labelledby="kb-tab-${o.tab}">${s}</div>
       ${o.error ? h`<div class="notice" role="alert">${t(o.error)}</div>` : b}
       <div class="dlg-foot">
-        ${r ? h`<span class="set-hint form-unsaved" role="status">${t("form_unsaved")}</span>` : b}
+        ${n ? h`<span class="set-hint form-unsaved" role="status">${t("form_unsaved")}</span>` : b}
         <span class="grow"></span>
-        <button class="pill-btn" type="button" @click=${n}>${t("cancel")}</button>
-        <button class="primary-btn" type="button" ?disabled=${o.saving || r} @click=${e.onSave}>${t("save")}</button>
+        <button class="pill-btn" type="button" @click=${i}>${t("cancel")}</button>
+        <button class="primary-btn" type="button" ?disabled=${o.saving || n} @click=${e.onSave}>${t("save")}</button>
       </div>
     </div>
   </dialog>`;

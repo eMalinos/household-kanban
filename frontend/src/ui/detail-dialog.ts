@@ -189,6 +189,7 @@ function format(ev: Event, kind: Format): void {
   if (!ta) return;
   const old = ta.value;
   const r = applyFormat(old, ta.selectionStart, ta.selectionEnd, kind);
+  if (r.value === old) return;
   let s = 0, k = 0;
   while (s < old.length && s < r.value.length && old[s] === r.value[s]) s++;
   while (k < old.length - s && k < r.value.length - s && old[old.length - 1 - k] === r.value[r.value.length - 1 - k]) k++;
