@@ -33,6 +33,13 @@ describe("tileSummary", () => {
     expect(s.counts.done).toBe(1);
   });
 
+  test("overdue counts only Today-column items, in every mode", () => {
+    const items = [item("o1", { due: "2026-10-30" }), item("t1", { due: "2026-11-01" })];
+    expect(tileSummary(items, { ...ctx, mode: "raise" }, parents).overdue).toBe(1);
+    const od: Ctx = { ...ctx, mode: "overdue", enabled: new Set([...ctx.enabled, "overdue" as const]) };
+    expect(tileSummary(items, od, parents).overdue).toBe(0); // those sit in the Overdue column
+  });
+
   test("preview: first 3 Today items in sort order, collapsed parents skipped", () => {
     const s = tileSummary([
       item("late", { due: "2026-11-01T18:00:00+01:00" }), item("early", { due: "2026-11-01T08:00:00+01:00" }),

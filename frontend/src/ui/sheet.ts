@@ -17,7 +17,8 @@ export interface SheetView {
   onExpand: (parentId: string, on: boolean) => void;
   onFocus: (parentId: string) => void;
   onClose: () => void;
-  onKey: (ev: KeyboardEvent) => void;
+  /** Esc: closes the menu when open, the sheet otherwise. */
+  onCancel: () => void;
   onHistory: () => void;
   onMove: (item: Item, col: ColumnId) => void;
   onMenuClose: () => void;
@@ -25,8 +26,10 @@ export interface SheetView {
 }
 
 export function renderSheet(v: SheetView, env: Env): TemplateResult {
-  return html`<div class="backdrop" @click=${v.onClose}></div>
-  <section class="sheet" role="dialog" aria-modal="true" aria-label=${v.title} @keydown=${v.onKey}>
+  // native modal dialog: top layer, so no ancestor (backdrop-filter, transform) can re-anchor it; Esc arrives as `cancel`
+  return html`<dialog class="sheet kb-sheet" aria-label=${v.title}
+    @cancel=${(e: Event) => { e.preventDefault(); v.onCancel(); }}
+    @click=${(e: Event) => { if (e.target === e.currentTarget) v.onClose(); }}>
     <div class="grabber"><span></span></div>
     <div class="sheet-head">
       <span class="dot ${colorClass(v.color)}"><ha-icon .icon=${v.icon}></ha-icon></span>
@@ -43,7 +46,7 @@ export function renderSheet(v: SheetView, env: Env): TemplateResult {
       ${v.isDone ? html`<button class="pill-btn hist-link" type="button" @click=${v.onHistory}>${t(env.lang, "older_history", { n: v.olderDone })}</button>` : nothing}
     </div>
     ${v.menu ? renderMenu(v.menu, v, env) : nothing}
-  </section>`;
+  </dialog>`;
 }
 
 function renderMenu(item: Item, v: SheetView, env: Env): TemplateResult {

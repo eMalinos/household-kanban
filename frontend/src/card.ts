@@ -71,6 +71,7 @@ class HouseholdKanbanCard extends LitElement {
   private _sheetReturn?: string;
   private _sheetShown = false;
   private _menuShown = false;
+  private _menuFor?: string;
   private _lp?: { x: number; y: number; timer: number };
   private _lpFired = false;
   private _hq = 0; // bumped per filter change/close: a response of an older query is dropped
@@ -330,14 +331,17 @@ class HouseholdKanbanCard extends LitElement {
 
   private _closeSheet(): void {
     this._lpCancel();
-    this._menu = undefined;
+    this._closeMenu();
     this._sheet = undefined;
   }
 
-  private _sheetKey(ev: KeyboardEvent): void {
-    if (ev.key !== "Escape") return;
-    ev.stopPropagation();
-    if (this._menu) this._menu = undefined; else this._closeSheet();
+  private _closeMenu(): void {
+    this._menu = undefined;
+    this._lpFired = false; // no trailing click is coming any more
+  }
+
+  private _sheetCancel(): void {
+    if (this._menu) this._closeMenu(); else this._closeSheet();
   }
 
   private _lpStart(ev: PointerEvent): void {
@@ -347,7 +351,7 @@ class HouseholdKanbanCard extends LitElement {
     const uid = el?.dataset.uid;
     if (!uid || target.closest(".check")) return;
     this._lp = { x: ev.clientX, y: ev.clientY, timer: window.setTimeout(() => {
-      this._lp = undefined; this._lpFired = true; this._menu = uid;
+      this._lp = undefined; this._lpFired = true; this._menu = uid; this._menuFor = uid;
     }, LONG_PRESS_MS) };
   }
 
@@ -371,20 +375,25 @@ class HouseholdKanbanCard extends LitElement {
     } else if (!sheet && this._sheetShown) {
       this._sheetShown = false;
       const sel = this._sheetReturn;
-      if (sel) this.renderRoot.querySelector<HTMLElement>(sel)?.focus();
+      // the tile is gone when the layout switched to the board: fall back to the header
+      (sel && this.renderRoot.querySelector<HTMLElement>(sel) || this.renderRoot.querySelector<HTMLElement>("header .new"))?.focus();
     }
     const first = this.renderRoot.querySelector<HTMLElement>(".menu-btn");
     if (first && !this._menuShown) { this._menuShown = true; first.focus(); }
     else if (!first && this._menuShown) {
       this._menuShown = false;
-      this.renderRoot.querySelector<HTMLElement>(".sheet .sclose")?.focus();
+      const uid = this._menuFor;
+      const back = [...this.renderRoot.querySelectorAll<HTMLElement>(".sheet [data-uid]")].find((e) => e.dataset.uid === uid)?.querySelector<HTMLElement>(".title");
+      (back ?? this.renderRoot.querySelector<HTMLElement>(".sheet .sclose"))?.focus();
     }
   }
 
   protected updated(): void {
     this._syncSortables();
     this._observeMore();
-    const dlg = this.renderRoot.querySelector("dialog");
+    const sheetDlg = this.renderRoot.querySelector<HTMLDialogElement>("dialog.kb-sheet");
+    if (sheetDlg && !sheetDlg.open) sheetDlg.showModal();
+    const dlg = this.renderRoot.querySelector<HTMLDialogElement>("dialog.kb-dialog");
     this._sheetFocus(!!dlg);
     if (dlg && !dlg.open) {
       dlg.showModal();
@@ -485,10 +494,11 @@ class HouseholdKanbanCard extends LitElement {
   private _renderNarrow(env: Env, ctx: Ctx, scoped: Item[], people: string[], parents: Board["parents"]) {
     const who = this._filter.who;
     const items = scoped.filter((i) => !who || i.assignee === who);
-    const sh = this._sheet;
+    let sh = this._sheet;
     let sheet: unknown = nothing;
+    const p = sh?.kind === "parent" ? parents.find((x) => x.id === sh?.id) : undefined;
+    if (sh?.kind === "parent" && !p) { sh = undefined; queueMicrotask(() => this._closeSheet()); } // parent removed meanwhile
     if (sh) {
-      const p = sh.kind === "parent" ? parents.find((x) => x.id === sh.id) : undefined;
       const col = sh.id as ColumnId;
       const open = (list: Item[]) => list.filter((i) => i.status === "needs_action").sort(compareItems);
       const list = sh.kind === "parent"
@@ -509,10 +519,10 @@ class HouseholdKanbanCard extends LitElement {
         },
         onFocus: (id) => this._openSheet("parent", id, this._sheetReturn ?? ""),
         onClose: () => this._closeSheet(),
-        onKey: (ev) => this._sheetKey(ev),
+        onCancel: () => this._sheetCancel(),
         onHistory: () => this._openHistory(".sheet .hist-link"),
-        onMove: (item, c) => { this._menu = undefined; this._drop(item.uid, c); },
-        onMenuClose: () => { this._menu = undefined; },
+        onMove: (item, c) => { this._closeMenu(); this._drop(item.uid, c); },
+        onMenuClose: () => this._closeMenu(),
         press: { down: (ev) => this._lpStart(ev), move: (ev) => this._lpMove(ev), end: () => this._lpCancel() },
       }, env);
     }

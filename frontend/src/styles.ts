@@ -177,8 +177,9 @@ export const styles = css`
   .pcount { font-size: 14px; color: var(--kb-text-2); }
   .prow > span[aria-hidden] { color: var(--kb-text-2); }
 
-  .backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(10, 14, 20, 0.45); }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; height: 82vh; height: 82dvh; display: flex; flex-direction: column; border-radius: 28px 28px 0 0; background: color-mix(in srgb, var(--kb-fill) 70%, var(--kb-card)); border-top: 1px solid var(--kb-border); box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18); color: var(--kb-text); animation: kb-slide-up 0.38s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  dialog.sheet { margin: auto 0 0; padding: 0; width: 100%; max-width: 100%; height: 82vh; height: 82dvh; max-height: 82dvh; overflow: hidden; border-width: 1px 0 0; border-style: solid; border-radius: 28px 28px 0 0; background: color-mix(in srgb, var(--kb-fill) 70%, var(--kb-card)); border-color: var(--kb-border); box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18); color: var(--kb-text); animation: kb-slide-up 0.38s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  dialog.sheet[open] { display: flex; flex-direction: column; }
+  dialog.sheet::backdrop { background: rgba(10, 14, 20, 0.45); }
   @keyframes kb-slide-up { from { transform: translateY(100%); } to { transform: none; } }
   @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
   .grabber { display: grid; place-items: center; padding: 8px 0 2px; flex: none; }
@@ -187,7 +188,10 @@ export const styles = css`
   .sheet-head h2 { margin: 0; flex: 1; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
   .sheet-head .count { font-size: 13px; font-weight: 700; color: var(--kb-text-2); background: var(--kb-fill); border-radius: 999px; padding: 2px 10px; }
   .sheet-list { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 24px; overflow-y: auto; flex: 1; min-height: 0; -webkit-touch-callout: none; user-select: none; }
+  .sheet-list > * { flex-shrink: 0; }
   .sheet-list .card { min-height: 44px; }
+  .sheet-list .link { min-height: 44px; }
+  .sheet-head .sclose { width: 44px; height: 44px; }
   .sheet-list .check { width: 44px; height: 44px; margin: -11px -11px -11px -11px; border: 0; background: transparent; position: relative; }
   .sheet-list .check::before { content: ""; position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--kb-border); background: var(--kb-card); }
   .sheet-list .check[aria-pressed="true"]::before { border: 0; background: rgb(var(--c-green)); }

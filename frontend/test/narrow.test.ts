@@ -67,10 +67,10 @@ describe("narrow layout", () => {
     expect(q(".sheet")).toBeTruthy();
     expect(root().querySelectorAll(".sheet article[data-uid]").length).toBe(1);
     expect(q(".sheet .stack-head")?.textContent).toBe("Shopping");
-    q(".sheet")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await settle();
+    q(".sheet")!.dispatchEvent(new Event("cancel", { cancelable: true })); await settle();
     expect(q(".sheet")).toBeNull();
     q('.tile[data-tile="today"]')!.click(); await settle();
-    q(".backdrop")!.click(); await settle();
+    q(".sheet")!.click(); await settle();
     expect(q(".sheet")).toBeNull();
   });
 
@@ -87,7 +87,7 @@ describe("narrow layout", () => {
     await wait(560); await settle();
     expect(q(".menu")).toBeTruthy();
     art.click(); await settle();
-    expect(q("dialog")).toBeNull();
+    expect(q("dialog.kb-dialog")).toBeNull();
     q('.menu-btn[data-move="done"]')!.click(); await settle();
     expect(calls).toEqual([["set_status", { uid: "b", status: "completed" }]]);
     expect(q(".menu")).toBeNull();
@@ -102,9 +102,44 @@ describe("narrow layout", () => {
     expect(q(".menu")).toBeNull();
   });
 
+  test("the sheet is a native modal dialog; cancel closes the menu first, then the sheet; focus returns to the tile", async () => {
+    const spy = vi.spyOn(HTMLDialogElement.prototype, "showModal");
+    q('.tile[data-tile="week"]')!.focus();
+    q('.tile[data-tile="today"]')!.click(); await settle();
+    expect(q("dialog.kb-sheet")).toBeTruthy();
+    expect(spy.mock.contexts.some((c) => (c as HTMLElement).classList.contains("kb-sheet"))).toBe(true);
+    const art = q('.sheet article[data-uid="a"]')!;
+    ptr(art, "pointerdown", 5, 5);
+    await wait(560); await settle();
+    expect(q(".menu")).toBeTruthy();
+    q(".sheet")!.dispatchEvent(new Event("cancel", { cancelable: true })); await settle();
+    expect(q(".menu")).toBeNull();
+    expect(q(".sheet")).toBeTruthy();
+    q(".sheet")!.dispatchEvent(new Event("cancel", { cancelable: true })); await settle();
+    expect(q(".sheet")).toBeNull();
+    expect(root().activeElement).toBe(q('.tile[data-tile="today"]'));
+  });
+
+  test("sheet list children do not shrink (cards would be squeezed and overlap)", async () => {
+    const css = (card.constructor.styles as { cssText: string }).cssText;
+    expect(css).toMatch(/\.sheet-list > \* \{[^}]*flex-shrink: 0/);
+  });
+
+  test("a sheet whose parent disappears closes instead of crashing", async () => {
+    q('.prow[data-parent="shop"]')!.click(); await settle();
+    expect(q(".sheet")).toBeTruthy();
+    push({ ...board([item("a")]), parents: board([]).parents.slice(0, 1) }); await settle(); await settle();
+    expect(q(".sheet")).toBeNull();
+  });
+
+  test("overdue badge counts Today-column items due before today in the default mode", async () => {
+    push({ ...board([item("y", { due: "2026-10-31" }), item("a", { due: "2026-11-01" })]), end_of_day_mode: "raise" }); await settle();
+    expect(q('.tile[data-tile="today"] .pill.c-red')?.textContent).toBe("1 overdue");
+  });
+
   test("tap on an item opens the detail dialog", async () => {
     q('.prow[data-parent="household"]')!.click(); await settle();
     q('.sheet article[data-uid="b"]')!.click(); await settle();
-    expect(q("dialog")).toBeTruthy();
+    expect(q("dialog.kb-dialog")).toBeTruthy();
   });
 });

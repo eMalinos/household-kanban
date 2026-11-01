@@ -8,7 +8,7 @@ import { avatar, colorClass, parentDot, personName, type Env } from "./item-card
 
 export interface TileSummary {
   counts: Record<ColumnId, number>;
-  /** Open items due before today, whatever column they sit in. */
+  /** Items in the Today column that were due before today (the Today tile badge). */
   overdue: number;
   /** First 3 Today items in sort order, skipping parents that collapse into a stack. */
   preview: Item[];
@@ -23,7 +23,7 @@ export function tileSummary(items: Item[], ctx: Ctx, parents: Parent[] = []): Ti
     const col = columnOf(i, ctx);
     if (col) counts[col]++;
     if (col === "today") inToday.push(i);
-    if (i.status === "needs_action" && i.due && startOfDay(parseDue(i.due).date) < today) overdue++;
+    if (col === "today" && i.due && startOfDay(parseDue(i.due).date) < today) overdue++;
   }
   const collapsed = new Set(parents.filter((p) => p.collapse).map((p) => p.id));
   const preview = inToday.filter((i) => !collapsed.has(i.parent)).sort(compareItems).slice(0, 3);
@@ -61,7 +61,7 @@ export function renderTiles(v: TilesView, env: Env): TemplateResult {
     <div class="tiles">
       ${ORDER.filter((c) => v.ctx.enabled.has(c)).map((c) => {
         const wide = c === "today" || c === "done";
-        const badge = c === "today" && v.ctx.mode === "overdue" ? s.overdue : 0;
+        const badge = c === "today" ? s.overdue : 0;
         return html`<button class="tile ${wide ? "wide" : ""} ${colorClass(TILE_META[c].color)}" type="button" data-tile=${c} @click=${() => v.onTile(c)}>
           <span class="row">
             <span class="dot"><ha-icon .icon=${TILE_META[c].icon}></ha-icon></span>
