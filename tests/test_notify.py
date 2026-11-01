@@ -51,6 +51,7 @@ def test_one_summary_per_recipient():
     assert msgs[0].title == "2 tasks moved to today"
     assert msgs[1].title == "1 task moved to today"
     assert msgs[0].data["url"] == "/lovelace"
+    assert msgs[0].data["clickAction"] == "/lovelace"
 
 
 def test_assignee_without_phone_falls_back():
@@ -101,6 +102,15 @@ def test_single_item_action_label_and_body_cap():
 def test_czech_title():
     msg = build_messages(_run("move", [_it("a"), _it("b")]), OPTS, {}, "cs")[0]
     assert msg.title == "2 úkoly přesunuty na dnes"
+    many = build_messages(
+        _run("move", [_it(f"i{n}") for n in range(6)]), OPTS, {}, "cs"
+    )
+    assert many.__class__ is list and many[0].message.endswith("+1 další")
+
+
+def test_no_services_logs_warning(caplog):
+    build_messages(_run(items=[_it("a", ANNA)]), {"notify_assignee": True}, {})
+    assert "reach nobody" in caplog.text
 
 
 def test_no_message_when_nothing_affected():
@@ -134,6 +144,7 @@ async def _setup(hass, hass_storage, options, runs, items=()):
                     "mode": r.mode,
                     "items": r.items,
                     "notified": r.notified,
+                    "recipients": r.recipients,
                 }
                 for r in runs
             ],
@@ -246,7 +257,12 @@ async def _fire_action(hass, action):
 async def test_action_event_applies(hass, hass_storage, freezer):
     freezer.move_to(datetime(2026, 11, 2, 7, 0, tzinfo=PRAGUE))
     run = RunSummary(
-        "2026-11-01", date(2026, 11, 1), "move", [_it("a"), _it("b"), _it("c")], True
+        "2026-11-01",
+        date(2026, 11, 1),
+        "move",
+        [_it("a"), _it("b"), _it("c")],
+        True,
+        {"services": ["a", "b", "c"]},
     )
     entry = await _setup(
         hass,
@@ -273,7 +289,12 @@ async def test_action_event_applies(hass, hass_storage, freezer):
 async def test_action_move_today_keeps_local_time(hass, hass_storage, freezer):
     freezer.move_to(datetime(2026, 11, 2, 7, 0, tzinfo=PRAGUE))
     run = RunSummary(
-        "2026-11-01", date(2026, 11, 1), "keep", [_it("a"), _it("b")], True
+        "2026-11-01",
+        date(2026, 11, 1),
+        "keep",
+        [_it("a"), _it("b")],
+        True,
+        {"services": ["a", "b"]},
     )
     entry = await _setup(
         hass,
@@ -290,13 +311,55 @@ async def test_action_move_today_keeps_local_time(hass, hass_storage, freezer):
 
 async def test_foreign_actions_ignored(hass, hass_storage, freezer):
     freezer.move_to(datetime(2026, 11, 2, 7, 0, tzinfo=PRAGUE))
-    await _setup(hass, hass_storage, OPTS, [])
+    run = RunSummary(
+        "2026-11-01", date(2026, 11, 1), "move", [_it("a")], True, {"services": ["a"]}
+    )
+    entry = await _setup(
+        hass, hass_storage, OPTS, [run], items=[("a", "2026-11-02", {})]
+    )
     for action in (
         "OTHER",
         "HOUSEHOLD_KANBAN|done|nope|services",
         "HOUSEHOLD_KANBAN|x",
+        "HOUSEHOLD_KANBAN|done|2026-11-01|someone",
     ):
         await _fire_action(hass, action)
+    item = entry.runtime_data.items["a"]
+    assert item.status == "needs_action" and item.due == "2026-11-02"
+
+
+async def test_action_uses_persisted_recipients(hass, hass_storage, freezer):
+    freezer.move_to(datetime(2026, 11, 2, 9, 0, tzinfo=PRAGUE))
+    async_mock_service(hass, "notify", "mobile_app_karel_phone")
+    async_mock_service(hass, "notify", "mobile_app_shared")
+    _add_phone(hass)
+    run = _run("move", [_it("a", KAREL), _it("c")])
+    entry = await _setup(
+        hass,
+        hass_storage,
+        OPTS | {"notify_enabled": True},
+        [run],
+        items=[("a", "2026-11-02", {}), ("c", "2026-11-02", {})],
+    )
+    store = entry.runtime_data
+    assert store.runs["2026-11-01"].recipients == {KAREL: ["a"], "services": ["c"]}
+    assert hass_storage[DOMAIN]["data"]["runs"][0]["recipients"]["services"] == ["c"]
+    hass.states.async_remove(KAREL)  # phone lookup now fails
+    await _fire_action(hass, f"HOUSEHOLD_KANBAN|done|2026-11-01|{KAREL}")
+    assert store.items["a"].status == "completed"
+    assert store.items["c"].status == "needs_action"
+
+
+async def test_no_night_catch_up_before_next_notify(hass, hass_storage, freezer):
+    calls = async_mock_service(hass, "notify", "mobile_app_shared")
+    freezer.move_to(datetime(2026, 11, 1, 22, 0, tzinfo=PRAGUE))
+    opts = OPTS | {"notify_enabled": True, "close_time": "21:00"}
+    entry = await _setup(hass, hass_storage, opts, [_run("move", [_it("a")])])
+    assert calls == []
+    freezer.move_to(datetime(2026, 11, 2, 9, 0, tzinfo=PRAGUE))
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(calls) == 1
 
 
 async def test_options_service_list(hass, entry):

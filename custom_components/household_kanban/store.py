@@ -71,6 +71,8 @@ class RunSummary:
     mode: str
     items: list[dict]
     notified: bool = False
+    # recipient -> uids they were told about; set when the summary is sent
+    recipients: dict[str, list[str]] = field(default_factory=dict)
 
 
 def due_sort_key(due: str | None) -> datetime:

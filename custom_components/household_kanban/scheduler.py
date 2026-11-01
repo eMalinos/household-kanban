@@ -98,7 +98,17 @@ async def async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry) -> None
 
     async def catch_up_notify() -> None:
         # A notify time that passed while HA was down (or was just changed).
-        if dt_util.now().time() >= _notify_time(entry):
+        # Only when the latest unsent run closed before the last notify moment.
+        unsent = [r for r in entry.runtime_data.runs.values() if not r.notified]
+        if not unsent:
+            return
+        now, notify, close = dt_util.now(), _notify_time(entry), _close_time(entry)
+        tz = dt_util.get_default_time_zone()
+        last_notify = datetime.combine(now.date(), notify, tzinfo=tz)
+        if last_notify > now:
+            last_notify -= timedelta(days=1)
+        closed_on = unsent[-1].day + timedelta(days=close < time(12))
+        if last_notify > datetime.combine(closed_on, close, tzinfo=tz):
             await notify_tick()
 
     def disarm() -> None:

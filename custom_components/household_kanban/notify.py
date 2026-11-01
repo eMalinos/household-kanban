@@ -57,7 +57,7 @@ _TEXTS = {
         "overdue": lambda n: (
             f"{n} {_cs_form(n, 'úkol je', 'úkoly jsou', 'úkolů je')} po termínu"
         ),
-        "more": lambda n: f"+{n} dalších",
+        "more": lambda n: f"+{n} {_cs_form(n, 'další', 'další', 'dalších')}",
         "open": "Otevřít úkoly",
         MOVE_TODAY: ("Přesunout na dnes", "Přesunout vše na dnes"),
         DONE: ("Hotovo", "Vše hotovo"),
@@ -99,7 +99,12 @@ def build_messages(
     title_key = "moved" if run.mode == "move" else "overdue"
     messages = []
     for recipient, services, items in groups:
-        if not items or not services:
+        if not items:
+            continue
+        if not services:
+            _LOGGER.warning(
+                "Summary for %s would reach nobody: no phone or services", recipient
+            )
             continue
         names = [i["summary"] for i in items[:MAX_LISTED]]
         if len(items) > MAX_LISTED:
@@ -112,7 +117,8 @@ def build_messages(
                 title=texts[title_key](len(items)),
                 message=", ".join(names),
                 data={
-                    "url": URL,
+                    "url": URL,  # iOS
+                    "clickAction": URL,  # Android
                     "actions": [
                         {"action": "URI", "title": texts["open"], "uri": URL},
                         {
@@ -167,10 +173,15 @@ async def async_send_latest(hass: HomeAssistant, entry: ConfigEntry) -> None:
         return
     for run in unsent:
         run.notified = True
+    messages = (
+        _messages(hass, entry, unsent[-1])
+        if entry.options.get(CONF_NOTIFY_ENABLED)
+        else []
+    )
+    # Taps act on exactly what each recipient was told about.
+    unsent[-1].recipients = {m.recipient: m.uids for m in messages}
     await store.async_save_runs()
-    if not entry.options.get(CONF_NOTIFY_ENABLED):
-        return
-    for msg in _messages(hass, entry, unsent[-1]):
+    for msg in messages:
         for service in msg.services:
             domain, _, name = service.partition(".")
             if not hass.services.has_service(domain, name):
@@ -207,9 +218,7 @@ async def async_handle_action(
     run = store.runs.get(run_id)
     if run is None or action not in (MOVE_TODAY, DONE):
         return
-    uids = next(
-        (m.uids for m in _messages(hass, entry, run) if m.recipient == recipient), []
-    )
+    uids = run.recipients.get(recipient, [])
     now = dt_util.now()
     for uid in uids:
         item = store.items.get(uid)
