@@ -14,7 +14,7 @@ import { dashboardUrlPath, replaceCard } from "./logic/lovelace";
 import "./editor";
 import { t, tn, type Key } from "./i18n";
 import { styles } from "./styles";
-import type { Board, Item, Priority } from "./types";
+import type { Board, Item, Parent, Priority } from "./types";
 import { changedFields, draftOf, emptyDraft, fieldsOf, quickDate, renderDialog, type Draft } from "./ui/detail-dialog";
 import { byRecent, renderBoard } from "./ui/board";
 import { renderSheet } from "./ui/sheet";
@@ -83,6 +83,8 @@ class HouseholdKanbanCard extends LitElement {
   private _sortables = new Map<HTMLElement, Sortable>();
   private _dragFrom?: { parent: Node; next: Node | null };
   private _pending?: Board;
+  /** Card ticks not yet echoed by a board push: `base` = the description they started from. */
+  private _ticks = new Map<string, { base: string; next: string }>();
   private _seq = 0; // bumped per opened dialog, so a late write cannot touch a newer one
   private _returnTo?: () => HTMLElement | null | undefined;
   private _unsub?: Promise<() => void>;
@@ -148,6 +150,7 @@ class HouseholdKanbanCard extends LitElement {
   private _subscribe(): void {
     if (this._unsub || this._retry !== undefined || !this.hass || !this.isConnected) return;
     const p = subscribeBoard(this.hass, (board) => {
+      for (const [uid, tk] of this._ticks) if (board.items.find((i) => i.uid === uid)?.description !== tk.base) this._ticks.delete(uid);
       if (this._dragFrom) { this._pending = board; return; } // applied when the drag ends
       this._board = board; this._loadFailed = false;
     });
@@ -379,15 +382,16 @@ class HouseholdKanbanCard extends LitElement {
     this._hObs.observe(el);
   }
 
-  private _add(col: string, parents: { id: string }[], ctx: Ctx, returnTo = `.col[data-col="${col}"] .add`): void {
+  private _add(col: string, parents: Parent[], ctx: Ctx, lang: string, returnTo = `.col[data-col="${col}"] .add`): void {
     const back = () => this.renderRoot.querySelector<HTMLElement>(returnTo);
-    const parent = this._filter.parent ?? parents.find((p) => p.id === "household")?.id ?? parents[0]?.id;
+    const id = this._filter.parent ?? "household";
+    const parent = parents.find((p) => p.id === id) ?? parents[0];
     if (!parent) return;
     const prio = /^p([123])$/.exec(col);
     const date: Partial<Record<string, string>> = {
       today: quickDate("today", ctx.now), week: ymd(ctx.week.end), later: ymd(addDays(ctx.week.end, 1)),
     };
-    this._openDialog(emptyDraft(parent, prio ? { priority: Number(prio[1]) as Priority } : { date: date[col] ?? "" }), back);
+    this._openDialog(emptyDraft(parent, lang, prio ? { priority: Number(prio[1]) as Priority } : { date: date[col] ?? "" }), back);
   }
 
   /** One Sortable per column; Lit owns the DOM, so a drop is undone here and the next board push re-renders. */
@@ -542,9 +546,15 @@ class HouseholdKanbanCard extends LitElement {
         if (on) next.add(uid); else next.delete(uid);
         this._expanded = next;
       },
+      // ponytail: the whole description is written, so two people ticking in the same second is last write wins;
+      // a per-line server op can come later. Own rapid ticks build on `_ticks` until the board echoes them.
       onLines: (item, description) => {
+        const base = this._ticks.get(item.uid)?.base ?? this._board?.items.find((i) => i.uid === item.uid)?.description ?? item.description;
+        this._ticks.set(item.uid, { base, next: description });
+        this.requestUpdate();
         updateItem(hass, item.uid, { description }).catch((err) => {
           console.warn("household_kanban: update_item failed", err);
+          if (this._ticks.get(item.uid)?.next === description) { this._ticks.delete(item.uid); this.requestUpdate(); }
           this._fail("err_update");
         });
       },
@@ -558,23 +568,24 @@ class HouseholdKanbanCard extends LitElement {
     };
     const people = cfg.people ?? Object.keys(hass.states).filter((id) => id.startsWith("person."));
     const f = this._filter;
-    const scoped = board.items.filter((i) => parents.some((p) => p.id === i.parent));
+    const scoped = board.items.filter((i) => parents.some((p) => p.id === i.parent))
+      .map((i) => { const tk = this._ticks.get(i.uid); return tk ? { ...i, description: tk.next } : i; });
     const shown = scoped.filter((i) => (!f.who || i.assignee === f.who) && (!f.parent || i.parent === f.parent));
 
     return html`<ha-card>
       ${this._notice ? html`<div class="notice" role="alert">${t(lang, this._notice)}</div>` : nothing}
-      <header>
+      <header class=${this._narrow ? "narrow" : ""}>
         <div class="titles"><h1>${t(lang, "title")}</h1><div class="summary">${this._summary(scoped, ctx, lang)}</div></div>
         ${hass.user?.is_admin ? html`<button class="round-btn gear-btn" type="button" aria-label=${t(lang, "settings")} title=${t(lang, "settings")}
           @click=${() => this._openSettings()}>${GEAR}</button>` : nothing}
         <button class="pill-btn hist-btn" type="button" @click=${() => this._openHistory("header .hist-btn")}>${t(lang, "history")}</button>
-        <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, "header .new")}>+ ${t(lang, "new_note")}</button>
+        <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, lang, "header .new")}>+ ${t(lang, "new_note")}</button>
       </header>
       ${this._narrow ? this._renderNarrow(env, ctx, scoped, people, parents) : html`
       ${renderFilters(env, f, people, scoped, (patch) => { this._filter = { ...f, ...patch }; })}
       ${renderBoard(shown, {
         ctx, group: f.group,
-        onAdd: (col) => this._add(col, parents, ctx),
+        onAdd: (col) => this._add(col, parents, ctx, lang),
         onHistory: () => this._openHistory(".col[data-col=\"done\"] .note-btn"),
       }, env)}`}
       ${this._hist ? renderHistory(this._hist, {

@@ -2,7 +2,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import type { Hass } from "../api";
 import { diffDays, parseDue, startOfDay } from "../logic/dates";
 import { join, order, progress, split, toggle, type Line } from "../logic/checklist";
-import { t, type Key } from "../i18n";
+import { t, tn, type Key } from "../i18n";
 import type { Item, Parent } from "../types";
 import { renderNote } from "./note";
 
@@ -118,13 +118,13 @@ export function renderItem(item: Item, env: Env, showPriority: boolean): Templat
 
 /** The card's checklist: the first open lines, all of them when expanded; a tick writes at once. */
 function renderLines(item: Item, note: string, lines: Line[], env: Env): TemplateResult {
-  const L = (k: Key, n = 0) => t(env.lang, k, { n });
+  const L = (k: Key) => t(env.lang, k);
   const p = progress(lines), open = p.total - p.done;
   const expanded = env.expanded.has(item.uid);
   const shown = expanded ? lines : lines.slice(0, Math.min(open, SHOWN));
   const hidden = open - shown.filter((l) => !l.done).length;
   const more = expanded ? L("cl_hide_ticked")
-    : `+ ${[hidden ? L("cl_more", hidden) : "", p.done ? L("cl_ticked", p.done) : ""].filter(Boolean).join(" · ")}`;
+    : `+ ${[hidden ? tn(env.lang, "cl_more", hidden) : "", p.done ? tn(env.lang, "cl_ticked", p.done) : ""].filter(Boolean).join(" · ")}`;
   return html`<div class="cl-bar"><span style="width:${Math.round((p.done / p.total) * 100)}%"></span></div>
     <div class="cl">
       ${shown.map((l, i) => html`<button class="cl-row" type="button" role="checkbox" aria-checked=${l.done}

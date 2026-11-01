@@ -6,12 +6,12 @@ const en = {
   group_date: "By date", group_priority: "By priority", group_label: "Group",
   filter_people: "Filter by person", filter_parents: "Filter by list",
   all_people: "Everyone", all_parents: "All", unassigned: "Unassigned",
-  nothing: "Nothing here", mark_done: "Done", mark_open: "Reopen", bought: "Bought",
+  nothing: "Nothing here", mark_done: "Done", mark_open: "Reopen",
   moved: "Moved {n}×", moved_raised: "Moved {n}× · ↑ priority",
   yesterday: "Yesterday", today: "Today", tomorrow: "Tomorrow", days_ago: "{n} days ago",
   done_today: "Done today", done_yesterday: "Done yesterday", done_days_ago: "Done {n} days ago",
   done_note: "Last {days} days · {older} older in history",
-  cl_list: "List", cl_add_ph: "Add item…", cl_remove: "Remove item", cl_more: "{n} more", cl_ticked: "{n} ticked",
+  cl_list: "List", cl_add_ph: "Add item…", cl_remove: "Remove item", cl_default_title: "Shopping",
   cl_hide_ticked: "Hide ticked", cl_all_done: "All ticked", cl_mark_done: "Mark done",
   list_checklist: "Shopping list", list_checklist_hint: "Each note holds a tick list. Assist adds items to the open note.",
   loading: "Loading…", err_load: "Could not load tasks. Retrying…", err_update: "Could not update the task.",
@@ -69,12 +69,12 @@ const cs: typeof en = {
   group_date: "Podle data", group_priority: "Podle priority", group_label: "Seskupit",
   filter_people: "Filtr podle osoby", filter_parents: "Filtr podle seznamu",
   all_people: "Všichni", all_parents: "Vše", unassigned: "Nepřiřazeno",
-  nothing: "Nic tu není", mark_done: "Hotovo", mark_open: "Znovu otevřít", bought: "Koupeno",
+  nothing: "Nic tu není", mark_done: "Hotovo", mark_open: "Znovu otevřít",
   moved: "Přesunuto {n}×", moved_raised: "Přesunuto {n}× · ↑ priorita",
   yesterday: "Včera", today: "Dnes", tomorrow: "Zítra", days_ago: "Před {n} dny",
   done_today: "Hotovo dnes", done_yesterday: "Hotovo včera", done_days_ago: "Hotovo před {n} dny",
   done_note: "Za posledních {days} dní · {older} starších v historii",
-  cl_list: "Seznam", cl_add_ph: "Přidat položku…", cl_remove: "Odebrat položku", cl_more: "{n} další", cl_ticked: "{n} odškrtnuté",
+  cl_list: "Seznam", cl_add_ph: "Přidat položku…", cl_remove: "Odebrat položku", cl_default_title: "Nákup",
   cl_hide_ticked: "Skrýt odškrtnuté", cl_all_done: "Vše odškrtnuto", cl_mark_done: "Hotovo",
   list_checklist: "Nákupní seznam", list_checklist_hint: "Každý lístek drží seznam k odškrtávání. Assist přidává do otevřeného lístku.",
   loading: "Načítání…", err_load: "Úkoly se nepodařilo načíst. Zkouším znovu…", err_update: "Úkol se nepodařilo změnit.",
@@ -141,6 +141,8 @@ const plural: Record<string, Record<string, Forms>> = {
     sum_moved: { other: "{n} moved from yesterday" },
     sum_overdue: { other: "{n} overdue" },
     days: { one: "{n} day", other: "{n} days" },
+    cl_more: { other: "{n} more" },
+    cl_ticked: { other: "{n} ticked" },
   },
   cs: {
     sum_open: { one: "{n} otevřený", few: "{n} otevřené", other: "{n} otevřených" },
@@ -148,11 +150,15 @@ const plural: Record<string, Record<string, Forms>> = {
     sum_moved: { one: "{n} přesunutý ze včerejška", few: "{n} přesunuté ze včerejška", other: "{n} přesunutých ze včerejška" },
     sum_overdue: { other: "{n} po termínu" },
     days: { one: "{n} den", few: "{n} dny", other: "{n} dní" },
+    cl_more: { one: "{n} další", few: "{n} další", other: "{n} dalších" },
+    cl_ticked: { one: "{n} odškrtnutá", few: "{n} odškrtnuté", other: "{n} odškrtnutých" },
   },
 };
 
 /** Count-dependent strings, picked with Intl.PluralRules. */
-export function tn(lang: string | undefined, base: "sum_open" | "sum_today" | "sum_moved" | "sum_overdue" | "days", n: number): string {
+export type PluralKey = "sum_open" | "sum_today" | "sum_moved" | "sum_overdue" | "days" | "cl_more" | "cl_ticked";
+
+export function tn(lang: string | undefined, base: PluralKey, n: number): string {
   const code = (lang ?? "en").split("-")[0];
   const l = code in plural ? code : "en";
   const forms = plural[l][base];

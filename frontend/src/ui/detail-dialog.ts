@@ -15,6 +15,8 @@ export interface Draft {
   parent: string; summary: string;
   /** The note part of the description; `lines` is its checklist, kept in serialized order. */
   description: string; lines: Line[];
+  /** The item's normalized description when opened; Save compares against it, not the latest board. */
+  base: string;
   /** Showing the rendered note instead of the textarea. */
   preview: boolean;
   priority: Priority; assignee: string | null;
@@ -25,14 +27,19 @@ export interface Draft {
 export function draftOf(item: Item): Draft {
   const { note, lines } = split(item.description);
   return {
-    uid: item.uid, status: item.status, heading: item.summary, parent: item.parent, summary: item.summary, description: note, lines: order(lines), preview: note !== "",
+    uid: item.uid, status: item.status, heading: item.summary, parent: item.parent, summary: item.summary,
+    description: note, lines: order(lines), base: join(note, lines), preview: note !== "",
     priority: item.priority, assignee: item.assignee,
     date: item.due ? ymd(parseDue(item.due).date) : "", time: dueTime(item.due), confirmDelete: false,
   };
 }
 
-export function emptyDraft(parent: string, preset: Partial<Pick<Draft, "date" | "priority">> = {}): Draft {
-  return { status: "needs_action", heading: "", parent, summary: "", description: "", lines: [], preview: false, priority: 2, assignee: null, date: "", time: "", confirmDelete: false, ...preset };
+/** A new note in a checklist list starts titled, so Save works with the focus in "Add item…". */
+export function emptyDraft(parent: Parent, lang: string, preset: Partial<Pick<Draft, "date" | "priority">> = {}): Draft {
+  return {
+    status: "needs_action", heading: "", parent: parent.id, summary: parent.checklist ? t(lang, "cl_default_title") : "",
+    description: "", lines: [], base: "", preview: false, priority: 2, assignee: null, date: "", time: "", confirmDelete: false, ...preset,
+  };
 }
 
 export function fieldsOf(d: Draft): ItemFields & { summary: string } {
@@ -46,14 +53,23 @@ export function fieldsOf(d: Draft): ItemFields & { summary: string } {
 export function changedFields(item: Item, d: Draft): ItemFields {
   const f = fieldsOf(d), o = draftOf(item), out: ItemFields = {};
   if (f.summary !== item.summary) out.summary = f.summary;
-  // against the normalized original, so opening and saving never rewrites a foreign description
-  const { note, lines } = split(item.description);
-  if (f.description !== join(note, lines)) out.description = f.description;
+  // against the description at open, so an untouched list never overwrites lines added meanwhile (Assist)
+  if (f.description !== d.base) out.description = mergeAdded(d, item.description);
   if (d.date !== o.date || d.time !== o.time) out.due = f.due;
   if (f.priority !== item.priority) out.priority = f.priority;
   if (f.assignee !== item.assignee) out.assignee = f.assignee;
   if (f.parent !== item.parent) out.parent = f.parent;
   return out;
+}
+
+/**
+ * The draft's description plus every line that arrived after the dialog opened.
+ * ponytail: only additions merge; a concurrent tick or edit by someone else is last write wins.
+ */
+function mergeAdded(d: Draft, latest: string): string {
+  const known = new Set([...split(d.base).lines, ...d.lines].map((l) => l.text));
+  const lines = split(latest).lines.reduce((acc, l) => (known.has(l.text) ? acc : add(acc, l.text)), d.lines);
+  return join(d.description, lines);
 }
 
 export type Quick = "today" | "tomorrow" | "weekend" | "none";

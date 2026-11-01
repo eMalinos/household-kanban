@@ -42,6 +42,9 @@ export const styles = css`
 
   header { display: flex; align-items: center; gap: 12px; }
   header .titles { flex: 1; min-width: 0; }
+  /* narrow: title + summary on the first row, the buttons on their own row */
+  header.narrow { flex-wrap: wrap; justify-content: flex-end; row-gap: 10px; }
+  header.narrow .titles { flex-basis: 100%; }
   h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
   .summary { font-size: 13px; color: var(--kb-text-2); }
   .seg { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--kb-fill); box-shadow: var(--kb-inset); }
@@ -184,7 +187,6 @@ export const styles = css`
   .tile { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 14px; min-height: 44px; text-align: left; border-radius: 20px; border: 1px solid var(--kb-border); background: var(--kb-card); box-shadow: var(--kb-shadow); }
   .tile.wide { grid-column: 1 / -1; }
   .qchips { display: flex; gap: 12px; }
-  .qchips:empty { display: none; }
   .qchip { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px 0 10px; border-radius: 999px; border: 1px solid var(--kb-border); background: var(--kb-card); box-shadow: var(--kb-shadow); color: var(--kb-text); font-size: 15px; font-weight: 600; }
   .qlabel { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .qcount { font-size: 17px; font-weight: 700; }

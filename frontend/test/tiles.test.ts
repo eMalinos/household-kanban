@@ -77,6 +77,14 @@ describe("mobile chips", () => {
     expect(opened).toEqual(["done"]);
   });
 
+  test("the This week tile previews up to 3 items like Today", () => {
+    const host = document.createElement("div");
+    const env = { hass: { states: {} }, lang: "en", now, parents: [] } as never;
+    const week = ["w1", "w2", "w3", "w4"].map((u, i) => item(u, { due: `2026-11-0${2 + i}` }));
+    render(renderTiles({ ctx, items: week, people: [], who: null, onWho: () => undefined, onTile: () => undefined, onParent: () => undefined }, env), host);
+    expect([...host.querySelectorAll('[data-tile="week"] .preview .t')].map((e) => e.textContent)).toEqual(["w1", "w2", "w3"]);
+  });
+
   test("Today and This week are tiles, To-do and Done are not", () => {
     const h = draw(["todo", "week", "today", "done"]);
     expect([...h.querySelectorAll(".tile")].map((e) => (e as HTMLElement).dataset.tile)).toEqual(["today", "week"]);

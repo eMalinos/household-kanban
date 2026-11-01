@@ -12,21 +12,24 @@ export interface TileSummary {
   overdue: number;
   /** First 3 Today items in sort order. */
   preview: Item[];
+  /** First 3 This week items in sort order. */
+  weekPreview: Item[];
 }
 
 export function tileSummary(items: Item[], ctx: Ctx): TileSummary {
   const counts: Record<ColumnId, number> = { todo: 0, later: 0, week: 0, today: 0, overdue: 0, done: 0 };
   const today = startOfDay(ctx.now);
-  const inToday: Item[] = [];
+  const inToday: Item[] = [], inWeek: Item[] = [];
   let overdue = 0;
   for (const i of items) {
     const col = columnOf(i, ctx);
     if (col) counts[col]++;
     if (col === "today") inToday.push(i);
+    if (col === "week") inWeek.push(i);
     if (col === "today" && i.due && startOfDay(parseDue(i.due).date) < today) overdue++;
   }
-  const preview = inToday.sort(compareItems).slice(0, 3);
-  return { counts, overdue, preview };
+  const top = (list: Item[]) => list.sort(compareItems).slice(0, 3);
+  return { counts, overdue, preview: top(inToday), weekPreview: top(inWeek) };
 }
 
 export const TILE_META: Record<ColumnId, { icon: string; color: string }> = {
@@ -69,7 +72,7 @@ export function renderTiles(v: TilesView, env: Env): TemplateResult {
             ${badge > 0 ? html`<span class="pill c-red">${tn(env.lang, "sum_overdue", badge)}</span>` : nothing}
           </span>
           <span class="tile-count">${s.counts[c]}</span>
-          ${c === "today" ? html`<span class="preview">${s.preview.map((i) => html`<span class="row">
+          ${wide ? html`<span class="preview">${(c === "today" ? s.preview : s.weekPreview).map((i) => html`<span class="row">
             <span class="mark"></span><span class="t">${i.summary}</span>${i.assignee ? avatar(env.hass, i.assignee, "xs", true) : nothing}</span>`)}</span>` : nothing}
         </button>`;
       })}

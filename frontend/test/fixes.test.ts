@@ -51,3 +51,10 @@ test("datetime offset landing on another local day", () => {
 test("overdue with Today disabled falls to week", () => {
   expect(columnOf(it({ due: "2026-11-02" }), ctx(["todo", "week"]))).toBe("week");
 });
+
+test("Czech plurals for the checklist more/ticked labels", () => {
+  expect([1, 3, 5].map((n) => tn("cs", "cl_more", n))).toEqual(["1 další", "3 další", "5 dalších"]);
+  expect([1, 3, 5].map((n) => tn("cs", "cl_ticked", n))).toEqual(["1 odškrtnutá", "3 odškrtnuté", "5 odškrtnutých"]);
+  expect(tn("en", "cl_more", 2)).toBe("2 more");
+  expect(tn("en", "cl_ticked", 1)).toBe("1 ticked");
+});

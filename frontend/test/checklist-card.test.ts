@@ -112,3 +112,69 @@ test("a new note in a checklist parent shows the List section", async () => {
   expect(dialog()!.querySelector(".cl-list")).not.toBeNull();
   expect(root().activeElement).toBe(dialog()!.querySelector(".cl-add input"));
 });
+
+const openDialog = async (uid: string) => {
+  cardEl(uid).querySelector<HTMLElement>(".title")!.click();
+  await settle();
+};
+const setTitle = (v: string) => {
+  const t = dialog()!.querySelector("#kb-title") as HTMLInputElement;
+  t.value = v;
+  t.dispatchEvent(new Event("input"));
+};
+
+test("Save with an untouched list does not erase a line Assist added meanwhile", async () => {
+  push(board([item("a", { description: "note\n\n- [ ] milk" })]));
+  await settle();
+  await openDialog("a");
+  push(board([item("a", { description: "note\n\n- [ ] milk\n- [ ] bread" })]));
+  await settle();
+  setTitle("Lidl");
+  await settle();
+  btn(/^\s*Save\s*$/, dialog()!).click();
+  await settle();
+  expect(calls).toEqual([["update_item", { uid: "a", summary: "Lidl" }]]);
+});
+
+test("Save with a ticked row keeps a line Assist added meanwhile", async () => {
+  push(board([item("a", { description: "note\n\n- [ ] milk\n- [ ] eggs" })]));
+  await settle();
+  await openDialog("a");
+  push(board([item("a", { description: "note\n\n- [ ] milk\n- [ ] eggs\n- [ ] bread" })]));
+  await settle();
+  (dialog()!.querySelector(".cl-check") as HTMLButtonElement).click();
+  await settle();
+  btn(/^\s*Save\s*$/, dialog()!).click();
+  await settle();
+  expect(calls).toEqual([["update_item", { uid: "a", description: "note\n\n- [ ] eggs\n- [ ] bread\n- [x] milk" }]]);
+});
+
+test("two quick ticks before the board push keep both", async () => {
+  push(board([item("a", { description: "- [ ] milk\n- [ ] eggs\n- [ ] bread" })]));
+  await settle();
+  rows("a")[0].click(); // milk
+  await settle();
+  expect(rows("a").map((r) => r.textContent?.trim())).toEqual(["eggs", "bread"]); // rendered from the pending tick
+  rows("a")[0].click(); // eggs, now first
+  await settle();
+  expect(calls[1]).toEqual(["update_item", { uid: "a", description: "- [ ] bread\n- [x] eggs\n- [x] milk" }]);
+  push(board([item("a", { description: "- [ ] bread\n- [x] eggs\n- [x] milk" })]));
+  await settle();
+  expect(card._ticks.size).toBe(0);
+});
+
+test("a new note in a checklist list is titled and can be saved right away", async () => {
+  push(board([]));
+  await settle();
+  card._filter = { ...card._filter, parent: "shop" };
+  await settle();
+  (root().querySelector("header .new") as HTMLButtonElement).click();
+  await settle();
+  expect((dialog()!.querySelector("#kb-title") as HTMLInputElement).value).toBe("Shopping");
+  const save = btn(/^\s*Save\s*$/, dialog()!);
+  expect(save.disabled).toBe(false);
+  save.click();
+  await settle();
+  expect(calls[0][0]).toBe("create_item");
+  expect(calls[0][1]).toMatchObject({ summary: "Shopping", parent: "shop" });
+});

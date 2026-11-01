@@ -62,6 +62,12 @@ describe("narrow layout", () => {
     expect(q(".tiles")).toBeNull();
   });
 
+  test("the header wraps its buttons below the title only when narrow", async () => {
+    expect(q("header")?.classList.contains("narrow")).toBe(true);
+    resize(900); await settle();
+    expect(q("header")?.classList.contains("narrow")).toBe(false);
+  });
+
   test("Today tile opens a sheet with every note as a card; Esc and backdrop close it", async () => {
     q('.tile[data-tile="today"]')!.click(); await settle();
     expect(q(".sheet")).toBeTruthy();
