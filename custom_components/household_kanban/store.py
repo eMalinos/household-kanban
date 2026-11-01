@@ -43,7 +43,7 @@ class ParentData:
     name: str
     icon: str = DEFAULT_PARENT_ICON
     color: str = DEFAULT_PARENT_COLOR
-    collapse: bool = False
+    checklist: bool = False
 
 
 @dataclass
@@ -87,6 +87,15 @@ def due_sort_key(due: str | None) -> datetime:
     return dt_util.start_of_local_day(next_day) - timedelta(microseconds=1)
 
 
+def _parent_fields(stored: dict) -> dict:
+    """Stored parents from before v1.2 carry `collapse`; it became `checklist`."""
+    stored = dict(stored)
+    if "collapse" in stored:
+        stored.setdefault("checklist", stored["collapse"])
+        del stored["collapse"]
+    return stored
+
+
 def item_sort_key(item: ItemData) -> tuple:
     """Contract sort: due (+time) -> priority -> created_at."""
     return (due_sort_key(item.due), item.priority, item.created_at)
@@ -107,7 +116,9 @@ class KanbanStore:
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
-        self.parents = [ParentData(**p) for p in data.get("parents", [])]
+        self.parents = [
+            ParentData(**_parent_fields(p)) for p in data.get("parents", [])
+        ]
         self.items = {i["uid"]: ItemData(**i) for i in data.get("items", [])}
         self.archive = {i["uid"]: ItemData(**i) for i in data.get("archive", [])}
         if last_close := data.get("last_close"):
@@ -155,7 +166,7 @@ class KanbanStore:
         return lambda: self._listeners.remove(cb)
 
     async def async_add_parent(
-        self, name: str, icon: str, color: str, collapse: bool
+        self, name: str, icon: str, color: str, checklist: bool
     ) -> ParentData:
         """Add a parent; id = slugified name (+ _2, _3 ... if taken), fixed forever."""
         # HA's slugify gives "unknown" for "!!!" or emoji-only names
@@ -165,13 +176,13 @@ class KanbanStore:
         while parent_id in taken:
             n += 1
             parent_id = f"{base}_{n}"
-        parent = ParentData(parent_id, name, icon, color, collapse)
+        parent = ParentData(parent_id, name, icon, color, checklist)
         self.parents.append(parent)
         await self._async_changed()
         return parent
 
     async def async_update_parent(self, parent_id: str, **fields) -> ParentData:
-        """Change name/icon/color/collapse; the id and entity_id stay."""
+        """Change name/icon/color/checklist; the id and entity_id stay."""
         index = next(i for i, p in enumerate(self.parents) if p.id == parent_id)
         parent = self.parents[index] = replace(self.parents[index], **fields)
         await self._async_changed()

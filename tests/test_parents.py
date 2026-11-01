@@ -26,7 +26,7 @@ async def test_add_parent_creates_entity(hass, entry):
         hass,
         entry,
         "add_parent",
-        {"name": "Shopping", "icon": "mdi:cart", "color": "green", "collapse": True},
+        {"name": "Shopping", "icon": "mdi:cart", "color": "green", "checklist": True},
     )
     assert result["type"] is FlowResultType.MENU
     await hass.async_block_till_done()
@@ -35,7 +35,7 @@ async def test_add_parent_creates_entity(hass, entry):
     assert state.name == "Shopping"
     assert state.attributes["icon"] == "mdi:cart"
     shopping = next(p for p in entry.runtime_data.parents if p.id == "shopping")
-    assert (shopping.color, shopping.collapse) == ("green", True)
+    assert (shopping.color, shopping.checklist) == ("green", True)
 
 
 async def test_duplicate_name_gets_suffix(hass, entry):
@@ -52,7 +52,7 @@ async def test_rename_keeps_entity_id(hass, entry):
     result = await _menu(hass, entry, "edit_parent", {"parent": "garden"})
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {"name": "Yard", "icon": "mdi:tree", "color": "teal", "collapse": False},
+        {"name": "Yard", "icon": "mdi:tree", "color": "teal", "checklist": False},
     )
     assert result["type"] is FlowResultType.MENU
     await hass.async_block_till_done()
@@ -101,14 +101,14 @@ async def test_remove_with_only_household_returns_to_menu(hass, entry):
     assert result["type"] is FlowResultType.MENU
 
 
-async def test_collapse_flag_in_board(hass, entry, hass_ws_client):
+async def test_checklist_flag_in_board(hass, entry, hass_ws_client):
     await entry.runtime_data.async_add_parent("Garden", "mdi:flower", "green", True)
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "household_kanban/subscribe"})
     assert (await client.receive_json())["success"]
     board = (await client.receive_json())["event"]["board"]
     garden = next(p for p in board["parents"] if p["id"] == "garden")
-    assert garden["collapse"] is True
+    assert garden["checklist"] is True
     assert garden["entity_id"] == "todo.garden"
     assert garden["color"] in PARENT_COLORS
 

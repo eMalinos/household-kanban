@@ -81,7 +81,7 @@ async def test_settings_requires_admin(
     client = await hass_ws_client(hass, hass_read_only_access_token)
     assert (await _call(client, "settings"))["error"]["code"] == "unauthorized"
     msg = await _call(
-        client, "parents/add", name="X", icon="mdi:x", color="red", collapse=False
+        client, "parents/add", name="X", icon="mdi:x", color="red", checklist=False
     )
     assert msg["error"]["code"] == "unauthorized"
 
@@ -102,7 +102,7 @@ async def _add_garden(client):
         name="Garden",
         icon="mdi:flower",
         color="green",
-        collapse=False,
+        checklist=False,
     )
 
 
@@ -116,7 +116,7 @@ async def test_parents_add_update_remove(hass, entry, hass_ws_client):
         "name",
         "icon",
         "color",
-        "collapse",
+        "checklist",
     }
 
     msg = await _call(client, "parents/update", parent_id="garden", color="red")

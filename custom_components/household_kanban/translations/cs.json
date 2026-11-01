@@ -61,7 +61,7 @@
           "name": "Název",
           "icon": "Ikona",
           "color": "Barva",
-          "collapse": "Na nástěnce sbalený"
+          "checklist": "Nákupní seznam (položky do jednoho lístečku)"
         }
       },
       "edit_parent": {
@@ -77,7 +77,7 @@
           "name": "Název",
           "icon": "Ikona",
           "color": "Barva",
-          "collapse": "Na nástěnce sbalený"
+          "checklist": "Nákupní seznam (položky do jednoho lístečku)"
         }
       },
       "remove_parent": {

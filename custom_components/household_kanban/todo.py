@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from . import KanbanConfigEntry
+from . import KanbanConfigEntry, checklist
 from .const import STATUS_COMPLETED, STATUS_NEEDS_ACTION
 from .store import ItemData, KanbanStore, ParentData, item_sort_key
 
@@ -105,12 +105,36 @@ class KanbanTodoList(TodoListEntity):
         self.async_on_remove(self._store.add_listener(self._on_store_change))
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
+        status = str(item.status or STATUS_NEEDS_ACTION)
+        parent = next(p for p in self._store.parents if p.id == self._parent_id)
+        text = " ".join((item.summary or "").split())
+        if parent.checklist and status == STATUS_NEEDS_ACTION and text:
+            # No await between the lookup and the store write, so two
+            # concurrent adds cannot both create a new note.
+            open_notes = [
+                i
+                for i in self._store.items.values()
+                if i.parent == self._parent_id and i.status == STATUS_NEEDS_ACTION
+            ]
+            if open_notes:
+                newest = max(open_notes, key=lambda i: i.created_at)
+                await self._store.async_update_item(
+                    newest.uid, description=checklist.append(newest.description, text)
+                )
+            else:
+                names = {"en": "Shopping", "cs": "Nákup"}
+                await self._store.async_add_item(
+                    self._parent_id,
+                    names.get(self.hass.config.language, names["en"]),
+                    description=checklist.append("", text),
+                )
+            return
         await self._store.async_add_item(
             self._parent_id,
             item.summary or "",
             description=item.description or "",
             due=_due_to_str(item.due),
-            status=str(item.status or STATUS_NEEDS_ACTION),
+            status=status,
         )
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
