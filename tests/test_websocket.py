@@ -90,3 +90,26 @@ async def test_history_search_and_paging(hass, entry, hass_ws_client):
 
     assert (await history(parent="garden"))["total"] == 0
     assert (await history(parent="household"))["total"] == 25
+
+
+async def test_subscription_survives_options_change_and_reload(
+    hass, entry, hass_ws_client
+):
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/subscribe"})
+    assert (await client.receive_json())["success"]
+    assert (await client.receive_json())["event"]["board"]["end_of_day_mode"] == "raise"
+
+    hass.config_entries.async_update_entry(
+        entry, options={"end_of_day_mode": "keep", "close_time": "23:59"}
+    )
+    await hass.async_block_till_done()
+    assert (await client.receive_json())["event"]["board"]["end_of_day_mode"] == "keep"
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    await hass.services.async_call(
+        DOMAIN, "create_item", {"summary": "after reload"}, blocking=True
+    )
+    msg = await client.receive_json()
+    assert [i["summary"] for i in msg["event"]["board"]["items"]] == ["after reload"]

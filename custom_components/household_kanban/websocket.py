@@ -11,12 +11,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_END_OF_DAY_MODE,
     DEFAULT_END_OF_DAY_MODE,
     DOMAIN,
+    SIGNAL_BOARD_CHANGED,
     STATUS_COMPLETED,
 )
 from .store import item_sort_key, loaded_entry
@@ -60,17 +62,23 @@ def _entry_or_error(hass, connection, msg) -> ConfigEntry | None:
 @callback
 def ws_subscribe(hass: HomeAssistant, connection, msg: dict) -> None:
     """Send the board now and after every store change."""
-    if (entry := _entry_or_error(hass, connection, msg)) is None:
+    if _entry_or_error(hass, connection, msg) is None:
         return
 
     @callback
     def forward() -> None:
+        # Look the entry up per event so a reloaded entry keeps pushing.
+        try:
+            entry = loaded_entry(hass)
+        except ServiceValidationError:
+            return
         connection.send_message(
             websocket_api.event_message(msg["id"], {"board": board(hass, entry)})
         )
 
-    # ponytail: bound to this store; after an entry reload the card must resubscribe
-    connection.subscriptions[msg["id"]] = entry.runtime_data.add_listener(forward)
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(
+        hass, SIGNAL_BOARD_CHANGED, forward
+    )
     connection.send_result(msg["id"])
     forward()
 

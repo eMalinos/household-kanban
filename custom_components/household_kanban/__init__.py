@@ -9,6 +9,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+from .scheduler import async_setup_scheduler
 from .services import async_setup_services
 from .store import KanbanStore
 from .websocket import async_setup_websocket
@@ -30,6 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: KanbanConfigEntry) -> bo
     await store.async_load()
     entry.runtime_data = store
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_setup_scheduler(hass, entry)
     return True
 
 

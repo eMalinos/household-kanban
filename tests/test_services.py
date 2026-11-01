@@ -31,6 +31,7 @@ async def _todo_uids(hass, entity_id):
 
 
 async def test_create_item_with_meta(hass, entry):
+    await hass.config.async_set_time_zone("Europe/Prague")
     hass.states.async_set("person.karel", "home")
     await _svc(
         hass,
@@ -60,6 +61,11 @@ async def test_due_normalised(hass, entry):
     await _svc(hass, "create_item", {"summary": "date", "due": "2026-11-03"})
     dues = {i.summary: i.due for i in store.items.values()}
     assert dues == {"naive": "2026-11-02T10:00:00+01:00", "date": "2026-11-03"}
+    await _svc(hass, "create_item", {"summary": "utc", "due": "2026-11-02T09:00Z"})
+    await _svc(hass, "create_item", {"summary": "empty", "due": ""})
+    dues = {i.summary: i.due for i in store.items.values()}
+    assert dues["utc"] == "2026-11-02T10:00:00+01:00"
+    assert dues["empty"] is None
     for bad in ("tomorrow", "2026-13-01", "2026-11-02T25:00"):
         with pytest.raises(ServiceValidationError) as err:
             await _svc(hass, "create_item", {"summary": "x", "due": bad})

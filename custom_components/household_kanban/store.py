@@ -5,12 +5,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -21,6 +22,8 @@ from .const import (
     DEFAULT_PARENT_NAMES,
     DEFAULT_PRIORITY,
     DOMAIN,
+    RUNS_KEPT,
+    SIGNAL_BOARD_CHANGED,
     STATUS_COMPLETED,
     STATUS_NEEDS_ACTION,
     STORE_KEY,
@@ -59,6 +62,17 @@ class ItemData:
     raised: bool = False
 
 
+@dataclass
+class RunSummary:
+    """One end-of-day run; items are the day_closed event's item dicts."""
+
+    run_id: str
+    day: date
+    mode: str
+    items: list[dict]
+    notified: bool = False
+
+
 def due_sort_key(due: str | None) -> datetime:
     """Return the moment a due value sorts at (date only = end of local day)."""
     if due is None:
@@ -84,12 +98,20 @@ class KanbanStore:
         self.items: dict[str, ItemData] = {}
         self.archive: dict[str, ItemData] = {}
         self._listeners: list[Callable[[], None]] = []
+        self.last_close: date | None = None
+        self.runs: dict[str, RunSummary] = {}
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.parents = [ParentData(**p) for p in data.get("parents", [])]
         self.items = {i["uid"]: ItemData(**i) for i in data.get("items", [])}
         self.archive = {i["uid"]: ItemData(**i) for i in data.get("archive", [])}
+        if last_close := data.get("last_close"):
+            self.last_close = date.fromisoformat(last_close)
+        self.runs = {
+            r["run_id"]: RunSummary(**r | {"day": date.fromisoformat(r["day"])})
+            for r in data.get("runs", [])
+        }
         if not any(p.id == DEFAULT_PARENT for p in self.parents):
             name = DEFAULT_PARENT_NAMES.get(
                 self.hass.config.language, DEFAULT_PARENT_NAMES["en"]
@@ -103,11 +125,16 @@ class KanbanStore:
                 "parents": [asdict(p) for p in self.parents],
                 "items": [asdict(i) for i in self.items.values()],
                 "archive": [asdict(i) for i in self.archive.values()],
+                "last_close": self.last_close and self.last_close.isoformat(),
+                "runs": [
+                    asdict(r) | {"day": r.day.isoformat()} for r in self.runs.values()
+                ],
             }
         )
 
     async def _async_changed(self) -> None:
         await self._async_save()
+        async_dispatcher_send(self.hass, SIGNAL_BOARD_CHANGED)
         for listener in list(self._listeners):
             try:
                 listener()
@@ -140,6 +167,25 @@ class KanbanStore:
         item = self.items[uid] = replace(current, **fields)
         await self._async_changed()
         return item
+
+    async def async_close_day(self, run: RunSummary, changes: dict[str, dict]) -> None:
+        """Apply an end-of-day run as is (moved/raised come with the changes)."""
+        for uid, fields in changes.items():
+            self.items[uid] = replace(self.items[uid], **fields)
+        self.runs[run.run_id] = run
+        for old in list(self.runs)[:-RUNS_KEPT]:
+            del self.runs[old]
+        self.last_close = run.day
+        await self._async_changed()
+
+    async def async_archive(self, uids: list[str]) -> None:
+        for uid in uids:
+            self.archive[uid] = self.items.pop(uid)
+        await self._async_changed()
+
+    async def async_set_last_close(self, day: date) -> None:
+        self.last_close = day
+        await self._async_save()
 
     async def async_delete_item(self, uid: str) -> None:
         del self.items[uid]

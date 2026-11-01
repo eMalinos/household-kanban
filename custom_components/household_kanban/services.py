@@ -53,8 +53,8 @@ def _invalid(key: str, value: str) -> ServiceValidationError:
 
 
 def normalise_due(value: str | None) -> str | None:
-    """Return a date string or an aware ISO datetime (naive = HA local time)."""
-    if value is None:
+    """Return a date string or a local ISO datetime (naive = HA local time)."""
+    if not value:  # None or "" clears the due
         return None
     try:
         if len(value) == 10:
@@ -64,7 +64,7 @@ def normalise_due(value: str | None) -> str | None:
         raise _invalid("invalid_due", value) from None
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=dt_util.get_default_time_zone())
-    return moment.isoformat()
+    return dt_util.as_local(moment).isoformat()
 
 
 def _fields(hass: HomeAssistant, store: KanbanStore, data: dict) -> dict:

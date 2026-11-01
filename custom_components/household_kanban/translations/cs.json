@@ -10,6 +10,38 @@
       "single_instance_allowed": "Již nastaveno. Je možná pouze jedna konfigurace."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Household Kanban",
+        "menu_options": {
+          "end_of_day": "Konec dne"
+        }
+      },
+      "end_of_day": {
+        "title": "Konec dne",
+        "description": "Co se v čase uzávěrky stane s nedokončenými úkoly, které mají termín ten den nebo dříve.",
+        "data": {
+          "end_of_day_mode": "Režim",
+          "close_time": "Čas uzávěrky"
+        },
+        "data_description": {
+          "end_of_day_mode": "Ponechat: nic se nemění. Označit jako po termínu: úkoly se zobrazí jako po termínu. Posunout: termín se posune na další den ve stejný čas. Zvýšit prioritu: priorita se zvýší o jeden stupeň.",
+          "close_time": "Kdy se den uzavře (místní čas)."
+        }
+      }
+    }
+  },
+  "selector": {
+    "end_of_day_mode": {
+      "options": {
+        "keep": "Ponechat",
+        "overdue": "Označit jako po termínu",
+        "move": "Posunout na další den",
+        "raise": "Zvýšit prioritu"
+      }
+    }
+  },
   "services": {
     "create_item": {
       "name": "Vytvořit úkol",

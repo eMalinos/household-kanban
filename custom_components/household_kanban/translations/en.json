@@ -10,6 +10,38 @@
       "single_instance_allowed": "Already configured. Only a single configuration possible."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Household Kanban",
+        "menu_options": {
+          "end_of_day": "End of day"
+        }
+      },
+      "end_of_day": {
+        "title": "End of day",
+        "description": "What happens at the close time to open items that are due that day or earlier.",
+        "data": {
+          "end_of_day_mode": "Mode",
+          "close_time": "Close time"
+        },
+        "data_description": {
+          "end_of_day_mode": "Keep: nothing changes. Mark overdue: items are shown as overdue. Move: the due moves to the next day, same time. Raise: the priority goes up one step.",
+          "close_time": "When the day closes (local time)."
+        }
+      }
+    }
+  },
+  "selector": {
+    "end_of_day_mode": {
+      "options": {
+        "keep": "Keep",
+        "overdue": "Mark overdue",
+        "move": "Move to the next day",
+        "raise": "Raise priority"
+      }
+    }
+  },
   "services": {
     "create_item": {
       "name": "Create item",

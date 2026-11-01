@@ -19,3 +19,9 @@ STATUS_COMPLETED = "completed"
 
 CONF_END_OF_DAY_MODE = "end_of_day_mode"
 DEFAULT_END_OF_DAY_MODE = "raise"
+END_OF_DAY_MODES = ["keep", "overdue", "move", "raise"]
+CONF_CLOSE_TIME = "close_time"
+DEFAULT_CLOSE_TIME = "23:59"
+EVENT_DAY_CLOSED = f"{DOMAIN}_day_closed"
+RUNS_KEPT = 14
+SIGNAL_BOARD_CHANGED = f"{DOMAIN}_board_changed"
