@@ -1,6 +1,10 @@
 """Settings and parent websocket commands."""
 
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
 from homeassistant.core import ServiceCall
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from custom_components.household_kanban.const import DOMAIN
 
@@ -33,7 +37,7 @@ async def test_settings_defaults(hass, entry, hass_ws_client):
     }
 
 
-async def test_settings_update_merges_and_reschedules(hass, entry, hass_ws_client):
+async def test_settings_update_merges_options(hass, entry, hass_ws_client):
     client = await hass_ws_client(hass)
     hass.config_entries.async_update_entry(entry, options={"notify_time": "07:15"})
     msg = await _call(
@@ -45,6 +49,45 @@ async def test_settings_update_merges_and_reschedules(hass, entry, hass_ws_clien
     assert entry.options["notify_time"] == "07:15"
     again = await _call(client, "settings")
     assert again["result"] == msg["result"]
+
+
+async def test_settings_update_rearms_close_timer(hass, entry, hass_ws_client, freezer):
+    client = await hass_ws_client(hass)  # before the frozen clock moves
+    prague = ZoneInfo("Europe/Prague")
+    await hass.config.async_set_time_zone("Europe/Prague")
+    freezer.move_to(datetime(2026, 11, 1, 20, 0, tzinfo=prague))
+    store = entry.runtime_data
+    await store.async_set_last_close(date(2026, 10, 31))
+    await store.async_add_item("household", "bins", due="2026-11-01")
+    uid = next(iter(store.items))
+
+    msg = await _call(
+        client, "settings/update", end_of_day_mode="move", close_time="21:00"
+    )
+    assert msg["success"]
+    await hass.async_block_till_done()
+    at = datetime(2026, 11, 1, 21, 0, tzinfo=prague)  # the old 23:59 would not fire
+    freezer.move_to(at)
+    async_fire_time_changed(hass, at)
+    await hass.async_block_till_done()
+    assert store.items[uid].due == "2026-11-02"
+    assert store.last_close == date(2026, 11, 1)
+
+
+async def test_settings_not_loaded(hass, entry, hass_ws_client):
+    client = await hass_ws_client(hass)
+    await hass.config_entries.async_unload(entry.entry_id)
+    for type_, fields in (
+        ("settings", {}),
+        ("settings/update", {"close_time": "22:00"}),
+        (
+            "parents/add",
+            {"name": "X", "icon": "mdi:x", "color": "red", "checklist": False},
+        ),
+        ("parents/update", {"parent_id": "household", "name": "X"}),
+    ):
+        msg = await _call(client, type_, **fields)
+        assert msg["error"]["code"] == "not_loaded", type_
 
 
 async def test_settings_update_rejects_bad_time(hass, entry, hass_ws_client):
@@ -122,6 +165,15 @@ async def test_parents_add_update_remove(hass, entry, hass_ws_client):
     msg = await _call(client, "parents/update", parent_id="garden", color="red")
     assert msg["result"]["color"] == "red"
     assert entry.runtime_data.parents[-1].color == "red"
+
+    msg = await _call(client, "parents/update", parent_id="garden", name="Yard")
+    assert msg["result"]["name"] == "Yard"
+    assert entry.runtime_data.parents[-1].name == "Yard"
+
+    msg = await _call(client, "parents/update", parent_id="garden", checklist=True)
+    assert msg["result"]["checklist"] is True
+    assert entry.runtime_data.parents[-1].checklist is True
+    assert entry.runtime_data.parents[-1].name == "Yard"
 
     msg = await _call(client, "parents/update", parent_id="nope", color="red")
     assert msg["error"]["code"] == "not_found"
