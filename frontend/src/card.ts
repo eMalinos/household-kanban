@@ -5,6 +5,7 @@ import { addDays, firstWeekday, parseDue, startOfDay, weekRange, ymd } from "./l
 import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
 import { retryDelay } from "./logic/retry";
+import { keepDefined } from "./register";
 import { t, tn, type Key } from "./i18n";
 import { styles } from "./styles";
 import type { Board, Item, Priority } from "./types";
@@ -313,30 +314,7 @@ class HouseholdKanbanCard extends LitElement {
 }
 
 const NAME = "household-kanban-card";
-let warned = false;
-
-/**
- * HA swaps `window.customElements` for a scoped-registry polyfill during boot, after this module (loaded
- * early via extra_js_url) has already defined the element on the original registry. Define on whatever
- * registry is current, and keep checking for a while so a late swap cannot leave the card unknown.
- */
-function ensureDefined(): void {
-  const reg = window.customElements;
-  if (reg.get(NAME)) return;
-  try {
-    reg.define(NAME, HouseholdKanbanCard);
-  } catch (e) {
-    if (!warned) { warned = true; console.warn("household_kanban: could not register the card", e); }
-  }
-}
-ensureDefined();
-document.addEventListener("DOMContentLoaded", ensureDefined);
-window.addEventListener("load", ensureDefined);
-let checks = 0;
-const timer = window.setInterval(() => {
-  ensureDefined();
-  if (++checks >= 80) window.clearInterval(timer); // 20 s at 250 ms
-}, 250);
+keepDefined(NAME, HouseholdKanbanCard);
 
 declare global {
   interface Window { customCards?: { type: string; name: string; description: string }[] }
