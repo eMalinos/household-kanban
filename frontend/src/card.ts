@@ -56,7 +56,7 @@ class HouseholdKanbanCard extends LitElement {
   private _dragFrom?: { parent: Node; next: Node | null };
   private _pending?: Board;
   private _seq = 0; // bumped per opened dialog, so a late write cannot touch a newer one
-  private _returnTo?: string;
+  private _returnTo?: () => HTMLElement | null | undefined;
   private _unsub?: Promise<() => void>;
   private _retry?: number;
   private _attempts = 0;
@@ -84,6 +84,7 @@ class HouseholdKanbanCard extends LitElement {
     this._retry = undefined;
     this._sortables.forEach((s) => s.destroy());
     this._sortables.clear();
+    this._endDrag(); // destroy() does not fire `end`; do not hold board pushes forever
     void this._unsub?.then((u) => u()).catch(() => undefined);
     this._unsub = undefined;
   }
@@ -125,7 +126,7 @@ class HouseholdKanbanCard extends LitElement {
       console.warn("household_kanban: write failed", e);
       if (seq === this._seq) this._dlgError = err;
     } finally {
-      this._busy = false;
+      if (seq === this._seq) this._busy = false;
     }
   }
 
@@ -145,24 +146,27 @@ class HouseholdKanbanCard extends LitElement {
     this._down = undefined;
     // detail 0 = keyboard activation: there is no pointer to compare with
     if (me.detail !== 0 && down && isDrag(me.clientX - down.x, me.clientY - down.y, ev.timeStamp - down.t)) return;
-    this._openDialog(draftOf(item), `[data-uid="${item.uid}"] .title`);
+    // compared in JS, not via a selector: a uid may contain quotes or backslashes
+    this._openDialog(draftOf(item), () => [...this.renderRoot.querySelectorAll<HTMLElement>("[data-uid]")].find((e) => e.dataset.uid === item.uid)?.querySelector<HTMLElement>(".title"));
   }
 
-  private _openDialog(draft: Draft, returnTo: string): void {
+  private _openDialog(draft: Draft, returnTo: () => HTMLElement | null | undefined): void {
     this._seq++;
+    this._busy = false; // an older dialog's write no longer owns the flag
     this._dlgError = undefined;
     this._returnTo = returnTo;
     this._draft = draft;
   }
 
   private _add(col: string, parents: { id: string }[], ctx: Ctx, returnTo = `.col[data-col="${col}"] .add`): void {
+    const back = () => this.renderRoot.querySelector<HTMLElement>(returnTo);
     const parent = this._filter.parent ?? parents.find((p) => p.id === "household")?.id ?? parents[0]?.id;
     if (!parent) return;
     const prio = /^p([123])$/.exec(col);
     const date: Partial<Record<string, string>> = {
       today: quickDate("today", ctx.now), week: ymd(ctx.week.end), later: ymd(addDays(ctx.week.end, 1)),
     };
-    this._openDialog(emptyDraft(parent, prio ? { priority: Number(prio[1]) as Priority } : { date: date[col] ?? "" }), returnTo);
+    this._openDialog(emptyDraft(parent, prio ? { priority: Number(prio[1]) as Priority } : { date: date[col] ?? "" }), back);
   }
 
   /** One Sortable per column; Lit owns the DOM, so a drop is undone here and the next board push re-renders. */
@@ -179,14 +183,19 @@ class HouseholdKanbanCard extends LitElement {
         // the exact node after the card is its own Lit end marker, so the card goes back inside its part
         onStart: (e) => { this._dragFrom = { parent: e.item.parentNode as Node, next: e.item.nextSibling }; },
         onEnd: (e) => {
-          const from = this._dragFrom;
-          this._dragFrom = undefined;
-          if (from) from.parent.insertBefore(e.item, from.next && from.next.parentNode === from.parent ? from.next : null);
+          this._endDrag(e.item);
           if (e.to !== e.from) this._drop(e.item.dataset.uid, (e.to as HTMLElement).dataset.col);
-          if (this._pending) { this._board = this._pending; this._loadFailed = false; this._pending = undefined; }
         },
       }));
     }
+  }
+
+  /** Put a dragged card back inside its Lit part and apply the board push held during the drag. */
+  private _endDrag(item?: HTMLElement): void {
+    const from = this._dragFrom;
+    this._dragFrom = undefined;
+    if (from && item) from.parent.insertBefore(item, from.next && from.next.parentNode === from.parent ? from.next : null);
+    if (this._pending) { this._board = this._pending; this._loadFailed = false; this._pending = undefined; }
   }
 
   private _drop(uid: string | undefined, col: string | undefined): void {
@@ -211,8 +220,9 @@ class HouseholdKanbanCard extends LitElement {
       dlg.showModal();
       if (!this._draft?.uid) this.renderRoot.querySelector<HTMLElement>("#kb-title")?.focus();
     } else if (!dlg && this._returnTo) {
-      this.renderRoot.querySelector<HTMLElement>(this._returnTo)?.focus();
+      const sel = this._returnTo;
       this._returnTo = undefined;
+      sel()?.focus();
     }
   }
 
@@ -302,13 +312,35 @@ class HouseholdKanbanCard extends LitElement {
   }
 }
 
-customElements.define("household-kanban-card", HouseholdKanbanCard);
+const NAME = "household-kanban-card";
+let warned = false;
+
+/**
+ * HA swaps `window.customElements` for a scoped-registry polyfill during boot, after this module (loaded
+ * early via extra_js_url) has already defined the element on the original registry. Define on whatever
+ * registry is current, and keep checking for a while so a late swap cannot leave the card unknown.
+ */
+function ensureDefined(): void {
+  const reg = window.customElements;
+  if (reg.get(NAME)) return;
+  try {
+    reg.define(NAME, HouseholdKanbanCard);
+  } catch (e) {
+    if (!warned) { warned = true; console.warn("household_kanban: could not register the card", e); }
+  }
+}
+ensureDefined();
+document.addEventListener("DOMContentLoaded", ensureDefined);
+window.addEventListener("load", ensureDefined);
+let checks = 0;
+const timer = window.setInterval(() => {
+  ensureDefined();
+  if (++checks >= 80) window.clearInterval(timer); // 20 s at 250 ms
+}, 250);
 
 declare global {
   interface Window { customCards?: { type: string; name: string; description: string }[] }
 }
-(window.customCards ??= []).push({
-  type: "household-kanban-card",
-  name: "Household Kanban",
-  description: "Kanban board for household tasks",
-});
+if (!(window.customCards ??= []).some((c) => c.type === NAME)) {
+  window.customCards.push({ type: NAME, name: "Household Kanban", description: "Kanban board for household tasks" });
+}

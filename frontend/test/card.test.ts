@@ -15,19 +15,19 @@ const board = (items: Item[]): Board => ({
   items, end_of_day_mode: "keep",
 });
 
-let card: any, push: (b: Board) => void, calls: [string, any][], gate: Promise<void> | undefined;
+let card: any, push: (b: Board) => void, calls: [string, any][], gate: Promise<void> | undefined, gates: Promise<void>[];
 
 async function settle() { await card.updateComplete; await Promise.resolve(); await card.updateComplete; }
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(2026, 10, 1, 9, 0)); // Sunday; week column = Nov 2-8
-  calls = []; gate = undefined;
+  calls = []; gate = undefined; gates = [];
   card = document.createElement("household-kanban-card");
   card.hass = {
     states: {}, locale: { language: "en", first_weekday: "monday" },
     connection: { subscribeMessage: async (cb: (e: unknown) => void) => { push = (b) => cb({ board: b }); return () => undefined; } },
-    callService: async (_d: string, s: string, data: any) => { calls.push([s, data]); await gate; },
+    callService: async (_d: string, s: string, data: any) => { calls.push([s, data]); await (gates.shift() ?? gate); },
   };
   card.setConfig({ type: "household-kanban-card" });
   document.body.append(card);
@@ -166,5 +166,51 @@ describe("opening and the dialog", () => {
     dialog()!.dispatchEvent(new Event("close"));
     await settle();
     expect(root().activeElement).toBe(open);
+  });
+
+  test("disconnecting mid-drag releases the held board", async () => {
+    opts("todo").onStart({ item: cardEl("a") });
+    card.remove();
+    push(board([item("a"), item("b"), item("c", { due: "2026-11-05" }), item("d")]));
+    expect(card._board.items).toHaveLength(4);
+  });
+
+  test("a uid with quotes and backslashes does not break the dialog", async () => {
+    const weird = 'x"y\\z';
+    push(board([item(weird)]));
+    await settle();
+    const el = [...root().querySelectorAll<HTMLElement>("article[data-uid]")].find((e) => e.dataset.uid === weird)!;
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+    await settle();
+    dialog()!.dispatchEvent(new Event("close"));
+    await settle();
+    expect(dialog()).toBeNull();
+  });
+
+  test("an old write finishing does not clear busy for a newer dialog", async () => {
+    let relA!: () => void, relB!: () => void;
+    gates = [new Promise<void>((r) => { relA = r; }), new Promise<void>((r) => { relB = r; })];
+    const edit = async (uid: string) => {
+      cardEl(uid).dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+      await settle();
+      const input = root().querySelector("#kb-title") as HTMLInputElement;
+      input.value = `${uid} changed`;
+      input.dispatchEvent(new Event("input"));
+      await settle();
+      btn(/^\s*Save\s*$/).click();
+      await settle();
+    };
+    await edit("a");
+    dialog()!.dispatchEvent(new Event("close"));
+    await settle();
+    await edit("b");
+    relA();
+    await settle();
+    await settle();
+    expect(card._busy).toBe(true);
+    relB();
+    await settle();
+    await settle();
+    expect(card._busy).toBe(false);
   });
 });
