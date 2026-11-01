@@ -21,7 +21,7 @@ export interface BoardView {
   onHistory: () => void;
 }
 
-const byRecent = (a: Item, b: Item) => +new Date(b.completed_at ?? 0) - +new Date(a.completed_at ?? 0);
+export const byRecent = (a: Item, b: Item) => +new Date(b.completed_at ?? 0) - +new Date(a.completed_at ?? 0);
 
 export function buildColumns(items: Item[], v: Pick<BoardView, "ctx" | "group">, lang: string): { cols: Col[]; olderDone: number } {
   const { ctx } = v;

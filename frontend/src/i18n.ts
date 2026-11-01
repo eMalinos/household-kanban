@@ -22,6 +22,7 @@ const en = {
   history: "History", hist_total: "{n} completed", hist_search: "Search", hist_search_ph: "Search completed…",
   hist_empty: "Nothing found", hist_more: "Load more", hist_last_week: "Last week", reopen: "Reopen",
   err_history: "Could not load the history.", err_reopen: "Could not reopen the task.",
+  lists: "Lists", move_to: "Move to…", older_history: "Older in history ({n})",
 };
 const cs: typeof en = {
   title: "Úkoly",
@@ -47,6 +48,7 @@ const cs: typeof en = {
   history: "Historie", hist_total: "Hotových: {n}", hist_search: "Hledat", hist_search_ph: "Hledat v hotových…",
   hist_empty: "Nic nenalezeno", hist_more: "Načíst další", hist_last_week: "Minulý týden", reopen: "Znovu otevřít",
   err_history: "Historii se nepodařilo načíst.", err_reopen: "Úkol se nepodařilo znovu otevřít.",
+  lists: "Seznamy", move_to: "Přesunout do…", older_history: "Starší v historii ({n})",
 };
 
 export type Key = keyof typeof en;

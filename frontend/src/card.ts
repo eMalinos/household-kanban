@@ -10,7 +10,11 @@ import { t, tn, type Key } from "./i18n";
 import { styles } from "./styles";
 import type { Board, Item, Priority } from "./types";
 import { changedFields, draftOf, emptyDraft, fieldsOf, quickDate, renderDialog, type Draft } from "./ui/detail-dialog";
-import { renderBoard } from "./ui/board";
+import { byRecent, renderBoard } from "./ui/board";
+import { renderSheet } from "./ui/sheet";
+import { renderTiles, TILE_META } from "./ui/tiles";
+import { compareItems } from "./logic/sort";
+import { stackItems } from "./logic/stack";
 import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
 import type { Env } from "./ui/item-card";
@@ -27,6 +31,8 @@ export interface CardConfig {
 
 const DEFAULT_COLUMNS: ColumnId[] = ["todo", "week", "today", "done"];
 const HISTORY_PAGE = 50;
+const NARROW_PX = 600;
+const LONG_PRESS_MS = 500;
 
 class HouseholdKanbanCard extends LitElement {
   static properties = {
@@ -41,6 +47,9 @@ class HouseholdKanbanCard extends LitElement {
     _busy: { state: true },
     _dlgError: { state: true },
     _hist: { state: true },
+    _narrow: { state: true },
+    _sheet: { state: true },
+    _menu: { state: true },
   };
   static styles = styles;
 
@@ -55,6 +64,15 @@ class HouseholdKanbanCard extends LitElement {
   _busy = false;
   _dlgError?: Key;
   _hist?: HistoryState;
+  _narrow = false;
+  _sheet?: { kind: "col" | "parent"; id: string };
+  _menu?: string; // uid of the item whose "Move to…" menu is open
+  private _ro?: ResizeObserver;
+  private _sheetReturn?: string;
+  private _sheetShown = false;
+  private _menuShown = false;
+  private _lp?: { x: number; y: number; timer: number };
+  private _lpFired = false;
   private _hq = 0; // bumped per filter change/close: a response of an older query is dropped
   private _hTimer?: number;
   private _hObs?: IntersectionObserver;
@@ -85,12 +103,23 @@ class HouseholdKanbanCard extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this._subscribe();
+    if (typeof ResizeObserver !== "undefined") {
+      this._ro = new ResizeObserver((es) => {
+        const w = es[es.length - 1]?.contentRect.width ?? 0;
+        if (w > 0) this._narrow = w < NARROW_PX; // 0 = not laid out yet: keep the current layout
+        if (!this._narrow) this._closeSheet();
+      });
+      this._ro.observe(this);
+    }
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.clearTimeout(this._retry);
     this._retry = undefined;
+    this._ro?.disconnect();
+    this._ro = undefined;
+    this._lpCancel();
     this._sortables.forEach((s) => s.destroy());
     this._sortables.clear();
     this._endDrag(); // destroy() does not fire `end`; do not hold board pushes forever
@@ -157,6 +186,7 @@ class HouseholdKanbanCard extends LitElement {
   private _open(item: Item, ev: Event): void {
     const me = ev as MouseEvent, down = this._down;
     this._down = undefined;
+    if (this._lpFired) { this._lpFired = false; return; } // the click that follows a long-press
     // detail 0 = keyboard activation: there is no pointer to compare with
     if (me.detail !== 0 && down && isDrag(me.clientX - down.x, me.clientY - down.y, ev.timeStamp - down.t)) return;
     // compared in JS, not via a selector: a uid may contain quotes or backslashes
@@ -292,10 +322,70 @@ class HouseholdKanbanCard extends LitElement {
     run().catch((err) => { console.warn("household_kanban: drop failed", err); this._fail("err_update"); });
   }
 
+  private _openSheet(kind: "col" | "parent", id: string, returnSel: string): void {
+    this._sheetReturn = returnSel;
+    this._menu = undefined;
+    this._sheet = { kind, id };
+  }
+
+  private _closeSheet(): void {
+    this._lpCancel();
+    this._menu = undefined;
+    this._sheet = undefined;
+  }
+
+  private _sheetKey(ev: KeyboardEvent): void {
+    if (ev.key !== "Escape") return;
+    ev.stopPropagation();
+    if (this._menu) this._menu = undefined; else this._closeSheet();
+  }
+
+  private _lpStart(ev: PointerEvent): void {
+    this._lpFired = false;
+    this._lpCancel();
+    const target = ev.target as Element, el = target.closest<HTMLElement>("[data-uid]");
+    const uid = el?.dataset.uid;
+    if (!uid || target.closest(".check")) return;
+    this._lp = { x: ev.clientX, y: ev.clientY, timer: window.setTimeout(() => {
+      this._lp = undefined; this._lpFired = true; this._menu = uid;
+    }, LONG_PRESS_MS) };
+  }
+
+  private _lpMove(ev: PointerEvent): void {
+    const lp = this._lp;
+    if (lp && isDrag(ev.clientX - lp.x, ev.clientY - lp.y, 0)) this._lpCancel(); // a scroll, not a press
+  }
+
+  private _lpCancel(): void {
+    if (this._lp) window.clearTimeout(this._lp.timer);
+    this._lp = undefined;
+  }
+
+  /** Focus handling for the sheet and its menu; the native dialog, when open, owns the focus. */
+  private _sheetFocus(dialogOpen: boolean): void {
+    if (dialogOpen) return;
+    const sheet = this.renderRoot.querySelector<HTMLElement>(".sheet");
+    if (sheet && !this._sheetShown) {
+      this._sheetShown = true;
+      sheet.querySelector<HTMLElement>(".sclose")?.focus();
+    } else if (!sheet && this._sheetShown) {
+      this._sheetShown = false;
+      const sel = this._sheetReturn;
+      if (sel) this.renderRoot.querySelector<HTMLElement>(sel)?.focus();
+    }
+    const first = this.renderRoot.querySelector<HTMLElement>(".menu-btn");
+    if (first && !this._menuShown) { this._menuShown = true; first.focus(); }
+    else if (!first && this._menuShown) {
+      this._menuShown = false;
+      this.renderRoot.querySelector<HTMLElement>(".sheet .sclose")?.focus();
+    }
+  }
+
   protected updated(): void {
     this._syncSortables();
     this._observeMore();
     const dlg = this.renderRoot.querySelector("dialog");
+    this._sheetFocus(!!dlg);
     if (dlg && !dlg.open) {
       dlg.showModal();
       if (this._hist) this.renderRoot.querySelector<HTMLElement>(".kb-history input")?.focus();
@@ -345,6 +435,7 @@ class HouseholdKanbanCard extends LitElement {
         <button class="pill-btn hist-btn" type="button" @click=${() => this._openHistory("header .hist-btn")}>${t(lang, "history")}</button>
         <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, "header .new")}>+ ${t(lang, "new_note")}</button>
       </header>
+      ${this._narrow ? this._renderNarrow(env, ctx, scoped, people, parents) : html`
       ${renderFilters(env, f, people, scoped, (patch) => { this._filter = { ...f, ...patch }; })}
       ${renderBoard(shown, {
         board: { ...board, parents }, ctx, group: f.group, who: f.who, parent: f.parent,
@@ -357,7 +448,7 @@ class HouseholdKanbanCard extends LitElement {
         onFocus: (id) => { this._filter = { ...f, parent: id }; },
         onAdd: (col) => this._add(col, parents, ctx),
         onHistory: () => this._openHistory(".col[data-col=\"done\"] .note-btn"),
-      }, env)}
+      }, env)}`}
       ${this._hist ? renderHistory(this._hist, {
         hass, lang, now, parents, firstDay: firstWeekday(cfg.week_end, hass.locale),
         onSearch: (search) => this._histFilter({ search }, 300),
@@ -388,6 +479,49 @@ class HouseholdKanbanCard extends LitElement {
         },
       }) : nothing}
     </ha-card>`;
+  }
+
+  /** Tiles + parents list, and the bottom sheet when one is open. */
+  private _renderNarrow(env: Env, ctx: Ctx, scoped: Item[], people: string[], parents: Board["parents"]) {
+    const who = this._filter.who;
+    const items = scoped.filter((i) => !who || i.assignee === who);
+    const sh = this._sheet;
+    let sheet: unknown = nothing;
+    if (sh) {
+      const p = sh.kind === "parent" ? parents.find((x) => x.id === sh.id) : undefined;
+      const col = sh.id as ColumnId;
+      const open = (list: Item[]) => list.filter((i) => i.status === "needs_action").sort(compareItems);
+      const list = sh.kind === "parent"
+        ? open(items.filter((i) => i.parent === sh.id))
+        : col === "done" ? items.filter((i) => columnOf(i, ctx) === "done").sort(byRecent)
+          : open(items.filter((i) => columnOf(i, ctx) === col));
+      const meta = p ? { icon: p.icon, color: p.color, title: p.name } : { ...TILE_META[col], title: t(env.lang, `col_${col}` as Key) };
+      sheet = renderSheet({
+        ...meta, count: list.length, isDone: col === "done" && !p,
+        entries: sh.kind === "col" && col !== "done" ? stackItems(list, parents, null) : list,
+        olderDone: items.filter((i) => i.status === "completed").length - list.length,
+        menu: this._menu ? items.find((i) => i.uid === this._menu) : undefined,
+        expanded: this._expanded,
+        onExpand: (id, on) => {
+          const next = new Set(this._expanded);
+          if (on) next.add(id); else next.delete(id);
+          this._expanded = next;
+        },
+        onFocus: (id) => this._openSheet("parent", id, this._sheetReturn ?? ""),
+        onClose: () => this._closeSheet(),
+        onKey: (ev) => this._sheetKey(ev),
+        onHistory: () => this._openHistory(".sheet .hist-link"),
+        onMove: (item, c) => { this._menu = undefined; this._drop(item.uid, c); },
+        onMenuClose: () => { this._menu = undefined; },
+        press: { down: (ev) => this._lpStart(ev), move: (ev) => this._lpMove(ev), end: () => this._lpCancel() },
+      }, env);
+    }
+    return html`${renderTiles({
+      ctx, items, people, who,
+      onWho: (id) => { this._filter = { ...this._filter, who: id }; },
+      onTile: (c) => this._openSheet("col", c, `.tile[data-tile="${c}"]`),
+      onParent: (id) => this._openSheet("parent", id, `.prow[data-parent="${id}"]`),
+    }, env)}${sheet}`;
   }
 
   private _summary(items: Board["items"], ctx: Ctx, lang: string): string {
