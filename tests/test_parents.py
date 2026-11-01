@@ -111,3 +111,37 @@ async def test_collapse_flag_in_board(hass, entry, hass_ws_client):
     assert garden["collapse"] is True
     assert garden["entity_id"] == "todo.garden"
     assert garden["color"] in PARENT_COLORS
+
+
+async def test_unsluggable_names_fall_back_to_list(hass, entry):
+    store = entry.runtime_data
+    a = await store.async_add_parent("!!!", "mdi:flower", "green", False)
+    b = await store.async_add_parent("🎉", "mdi:flower", "green", False)
+    await hass.async_block_till_done()
+    assert (a.id, b.id) == ("list", "list_2")
+    assert hass.states.get("todo.list")
+
+
+async def test_options_abort_when_entry_not_loaded(hass, entry):
+    await hass.config_entries.async_unload(entry.entry_id)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "parents"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "entry_not_loaded"
+
+
+async def test_remove_same_parent_keeps_selection(hass, entry):
+    await entry.runtime_data.async_add_parent("Garden", "mdi:flower", "green", False)
+    result = await _menu(
+        hass, entry, "remove_parent", {"parent": "garden", "target": "garden"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"target": "same_parent"}
+    suggested = {
+        k: k.description["suggested_value"]
+        for k in result["data_schema"].schema
+        if k.description
+    }
+    assert suggested == {"parent": "garden", "target": "garden"}

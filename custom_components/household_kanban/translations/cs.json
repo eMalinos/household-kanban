@@ -92,6 +92,9 @@
     "error": {
       "name_required": "Zadejte název.",
       "same_parent": "Vyberte jiný seznam, kam úkoly přesunout."
+    },
+    "abort": {
+      "entry_not_loaded": "Household Kanban není načten."
     }
   },
   "selector": {

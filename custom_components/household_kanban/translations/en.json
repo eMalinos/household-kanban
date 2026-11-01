@@ -92,6 +92,9 @@
     "error": {
       "name_required": "Enter a name.",
       "same_parent": "Choose a different parent to move the items to."
+    },
+    "abort": {
+      "entry_not_loaded": "Household Kanban is not loaded."
     }
   },
   "selector": {

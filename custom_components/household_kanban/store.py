@@ -158,7 +158,8 @@ class KanbanStore:
         self, name: str, icon: str, color: str, collapse: bool
     ) -> ParentData:
         """Add a parent; id = slugified name (+ _2, _3 ... if taken), fixed forever."""
-        base = slugify(name)
+        # HA's slugify gives "unknown" for "!!!" or emoji-only names
+        base = slugify(name) if any(c.isalnum() for c in name) else "list"
         taken = {p.id for p in self.parents}
         parent_id, n = base, 1
         while parent_id in taken:

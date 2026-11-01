@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import (
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
@@ -40,7 +41,7 @@ from .const import (
     END_OF_DAY_MODES,
     PARENT_COLORS,
 )
-from .store import ParentData
+from .store import KanbanStore, ParentData
 
 
 class KanbanConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -77,10 +78,17 @@ class KanbanOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Parents menu; changes apply at once, the dialog is closed to finish."""
+        if self._store() is None:
+            return self.async_abort(reason="entry_not_loaded")
         return self.async_show_menu(
             step_id="parents",
             menu_options=["add_parent", "edit_parent", "remove_parent"],
         )
+
+    def _store(self) -> KanbanStore | None:
+        if self.config_entry.state is not ConfigEntryState.LOADED:
+            return None
+        return self.config_entry.runtime_data
 
     @staticmethod
     def _parent_schema(
@@ -111,11 +119,13 @@ class KanbanOptionsFlow(OptionsFlow):
     async def async_step_add_parent(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        if (store := self._store()) is None:
+            return self.async_abort(reason="entry_not_loaded")
         errors = {}
         if user_input is not None:
             user_input = self._clean(user_input)
             if user_input["name"]:
-                await self.config_entry.runtime_data.async_add_parent(**user_input)
+                await store.async_add_parent(**user_input)
                 return await self.async_step_parents()
             errors["name"] = "name_required"
         return self.async_show_form(
@@ -125,7 +135,8 @@ class KanbanOptionsFlow(OptionsFlow):
     async def async_step_edit_parent(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        store = self.config_entry.runtime_data
+        if (store := self._store()) is None:
+            return self.async_abort(reason="entry_not_loaded")
         if user_input is not None:
             self._parent_id = user_input["parent"]
             return await self.async_step_edit_parent_details()
@@ -137,8 +148,11 @@ class KanbanOptionsFlow(OptionsFlow):
     async def async_step_edit_parent_details(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        store = self.config_entry.runtime_data
-        parent = next(p for p in store.parents if p.id == self._parent_id)
+        if (store := self._store()) is None:
+            return self.async_abort(reason="entry_not_loaded")
+        parent = next((p for p in store.parents if p.id == self._parent_id), None)
+        if parent is None:  # removed in the meantime
+            return await self.async_step_parents()
         errors = {}
         if user_input is not None:
             user_input = self._clean(user_input)
@@ -158,7 +172,8 @@ class KanbanOptionsFlow(OptionsFlow):
     async def async_step_remove_parent(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        store = self.config_entry.runtime_data
+        if (store := self._store()) is None:
+            return self.async_abort(reason="entry_not_loaded")
         removable = [p for p in store.parents if p.id != DEFAULT_PARENT]
         if not removable:
             return await self.async_step_parents()
@@ -178,7 +193,9 @@ class KanbanOptionsFlow(OptionsFlow):
         )
         errors = {"target": "same_parent"} if user_input is not None else {}
         return self.async_show_form(
-            step_id="remove_parent", data_schema=schema, errors=errors
+            step_id="remove_parent",
+            data_schema=self.add_suggested_values_to_schema(schema, user_input),
+            errors=errors,
         )
 
     @staticmethod
