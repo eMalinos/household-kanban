@@ -3,18 +3,18 @@ import { columnOf, type ColumnId, type Ctx } from "../logic/columns";
 import { parseDue, startOfDay } from "../logic/dates";
 import { compareItems } from "../logic/sort";
 import { t, tn, type Key } from "../i18n";
-import type { Item, Parent } from "../types";
+import type { Item } from "../types";
 import { avatar, colorClass, parentDot, personName, type Env } from "./item-card";
 
 export interface TileSummary {
   counts: Record<ColumnId, number>;
   /** Items in the Today column that were due before today (the Today tile badge). */
   overdue: number;
-  /** First 3 Today items in sort order, skipping parents that collapse into a stack. */
+  /** First 3 Today items in sort order. */
   preview: Item[];
 }
 
-export function tileSummary(items: Item[], ctx: Ctx, parents: Parent[] = []): TileSummary {
+export function tileSummary(items: Item[], ctx: Ctx): TileSummary {
   const counts: Record<ColumnId, number> = { todo: 0, later: 0, week: 0, today: 0, overdue: 0, done: 0 };
   const today = startOfDay(ctx.now);
   const inToday: Item[] = [];
@@ -25,8 +25,7 @@ export function tileSummary(items: Item[], ctx: Ctx, parents: Parent[] = []): Ti
     if (col === "today") inToday.push(i);
     if (col === "today" && i.due && startOfDay(parseDue(i.due).date) < today) overdue++;
   }
-  const collapsed = new Set(parents.filter((p) => p.collapse).map((p) => p.id));
-  const preview = inToday.filter((i) => !collapsed.has(i.parent)).sort(compareItems).slice(0, 3);
+  const preview = inToday.sort(compareItems).slice(0, 3);
   return { counts, overdue, preview };
 }
 
@@ -48,7 +47,7 @@ export interface TilesView {
 }
 
 export function renderTiles(v: TilesView, env: Env): TemplateResult {
-  const s = tileSummary(v.items, v.ctx, env.parents);
+  const s = tileSummary(v.items, v.ctx);
   const open = v.items.filter((i) => i.status === "needs_action");
   return html`<div class="tiles-view">
     <div class="people ${v.who ? "has-filter" : ""}" role="group" aria-label=${t(env.lang, "filter_people")}>

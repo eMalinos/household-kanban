@@ -23,12 +23,12 @@ export interface SettingsState {
 
 /** `id` undefined = a new list; `target` set = removing, items go there. */
 export interface ParentForm {
-  id?: string; name: string; icon: string; color: string; collapse: boolean;
+  id?: string; name: string; icon: string; color: string; checklist: boolean;
   target?: string; busy?: boolean; error?: boolean;
 }
 
 export const DEFAULT_PARENT = "household";
-export const NEW_PARENT: ParentForm = { name: "", icon: "mdi:format-list-checks", color: "blue", collapse: false };
+export const NEW_PARENT: ParentForm = { name: "", icon: "mdi:format-list-checks", color: "blue", checklist: false };
 
 /** Only the keys the draft changed, or null when nothing did. */
 export function settingsPatch(server: Settings | undefined, draft: Settings | undefined): SettingsPatch | null {
@@ -186,7 +186,7 @@ function parentForm(f: ParentForm, e: SettingsEvents): TemplateResult {
     <div class="field"><span class="dlg-label">${L("list_color")}</span>
       <div class="chips" role="radiogroup" aria-label=${L("list_color")}>${PARENT_COLORS.map((c) => html`
         <button class="color-chip c-${c}" type="button" role="radio" data-color=${c} aria-label=${c} aria-checked=${f.color === c} @click=${() => set({ color: c })}></button>`)}</div></div>
-    <div class="set-line"><span class="grow">${L("collapse")}</span>${toggle(f.collapse, L("collapse"), () => set({ collapse: !f.collapse }))}</div>
+    <div class="set-line"><span class="set-text grow"><span class="set-name">${L("list_checklist")}</span><span class="set-hint">${L("list_checklist_hint")}</span></span>${toggle(f.checklist, L("list_checklist"), () => set({ checklist: !f.checklist }))}</div>
     ${f.target !== undefined ? html`<label class="field"><span class="dlg-label">${L("move_items_to")}</span>
       <select class="text-in" @change=${(ev: Event) => set({ target: value(ev) })}>${others.map((p) => html`<option value=${p.id} ?selected=${p.id === f.target}>${p.name}</option>`)}</select></label>` : nothing}
     ${f.error ? html`<div class="notice" role="alert">${L("err_parent")}</div>` : nothing}
@@ -213,10 +213,10 @@ function listsTab(d: CardConfig, form: ParentForm | undefined, e: SettingsEvents
         return html`<div class="set-row">
           ${parentDot(p)}
           <span class="set-text"><span class="set-name">${p.name}</span><span class="set-hint mono">${p.entity_id}</span></span>
-          ${p.collapse ? html`<span class="set-badge">${L("collapse")}</span>` : nothing}
+          ${p.checklist ? html`<span class="set-badge">${L("list_checklist")}</span>` : nothing}
           ${toggle(on, t(e.lang, "show_list", { name: p.name }), () => e.onChange({ parents: toggleIn(d.parents, allParents, p.id, !on) }), { parent: p.id })}
           <button class="icon-btn edit-list" type="button" data-parent=${p.id} aria-label=${L("edit_list")} aria-expanded=${form?.id === p.id}
-            @click=${() => e.onForm(form?.id === p.id ? undefined : { id: p.id, name: p.name, icon: p.icon, color: p.color, collapse: p.collapse })}>${icon("M4 20h4L19 9l-4-4L4 16zM14 6l4 4")}</button>
+            @click=${() => e.onForm(form?.id === p.id ? undefined : { id: p.id, name: p.name, icon: p.icon, color: p.color, checklist: p.checklist })}>${icon("M4 20h4L19 9l-4-4L4 16zM14 6l4 4")}</button>
         </div>${form?.id === p.id ? parentForm(form, e) : nothing}`;
       })}</div>
       ${form && form.id === undefined ? parentForm(form, e)

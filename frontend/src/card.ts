@@ -20,11 +20,10 @@ import { byRecent, renderBoard } from "./ui/board";
 import { renderSheet } from "./ui/sheet";
 import { renderTiles, TILE_META } from "./ui/tiles";
 import { compareItems } from "./logic/sort";
-import { stackItems } from "./logic/stack";
 import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
 import { NEW_PARENT, renderSettings, settingsPatch, type ParentForm, type SettingsState } from "./ui/settings-dialog";
-import type { Env } from "./ui/item-card";
+import { NO_OPEN, type Env } from "./ui/item-card";
 
 
 const HISTORY_PAGE = 50;
@@ -297,7 +296,7 @@ class HouseholdKanbanCard extends LitElement {
   private _saveParent(): void {
     const f = this._settings?.form;
     if (!f) return;
-    const fields = { name: f.name.trim(), icon: f.icon.trim() || NEW_PARENT.icon, color: f.color, collapse: f.collapse };
+    const fields = { name: f.name.trim(), icon: f.icon.trim() || NEW_PARENT.icon, color: f.color, checklist: f.checklist };
     if (!f.id) {
       const seq = this._seq;
       void this._parentWrite(async (hass) => {
@@ -400,7 +399,7 @@ class HouseholdKanbanCard extends LitElement {
       if (this._sortables.has(el)) continue;
       this._sortables.set(el, Sortable.create(el, {
         group: { name: "kb", pull: true, put: (to) => (to.el as HTMLElement).dataset.col !== "overdue" },
-        draggable: "[data-uid]", filter: ".check", preventOnFilter: false, sort: false,
+        draggable: "[data-uid]", filter: NO_OPEN, preventOnFilter: false, sort: false,
         delay: 150, delayOnTouchOnly: true, touchStartThreshold: 8, forceFallback: touch,
         // the exact node after the card is its own Lit end marker, so the card goes back inside its part
         onStart: (e) => { this._dragFrom = { parent: e.item.parentNode as Node, next: e.item.nextSibling }; },
@@ -461,7 +460,7 @@ class HouseholdKanbanCard extends LitElement {
     this._lpCancel();
     const target = ev.target as Element, el = target.closest<HTMLElement>("[data-uid]");
     const uid = el?.dataset.uid;
-    if (!uid || target.closest(".check")) return;
+    if (!uid || target.closest(NO_OPEN)) return;
     this._lp = { x: ev.clientX, y: ev.clientY, timer: window.setTimeout(() => {
       this._lp = undefined; this._lpFired = true; this._menu = uid; this._menuFor = uid;
     }, LONG_PRESS_MS) };
@@ -510,7 +509,8 @@ class HouseholdKanbanCard extends LitElement {
     if (dlg && !dlg.open) {
       dlg.showModal();
       if (this._hist) this.renderRoot.querySelector<HTMLElement>(".kb-history input")?.focus();
-      else if (!this._draft?.uid) this.renderRoot.querySelector<HTMLElement>("#kb-title")?.focus();
+      // a new note in a checklist list starts in "Add item…"
+      else if (!this._draft?.uid) (this.renderRoot.querySelector<HTMLElement>(".cl-add input") ?? this.renderRoot.querySelector<HTMLElement>("#kb-title"))?.focus();
     } else if (!dlg && this._returnTo) {
       const sel = this._returnTo;
       this._returnTo = undefined;
@@ -536,6 +536,18 @@ class HouseholdKanbanCard extends LitElement {
     this._ctx = ctx;
     const env: Env = {
       hass, lang, now, parents,
+      expanded: this._expanded,
+      onExpand: (uid, on) => {
+        const next = new Set(this._expanded);
+        if (on) next.add(uid); else next.delete(uid);
+        this._expanded = next;
+      },
+      onLines: (item, description) => {
+        updateItem(hass, item.uid, { description }).catch((err) => {
+          console.warn("household_kanban: update_item failed", err);
+          this._fail("err_update");
+        });
+      },
       onOpen: (item, ev) => this._open(item, ev),
       onToggle: (item) => {
         setStatus(hass, item.uid, item.status === "completed" ? "needs_action" : "completed").catch((err) => {
@@ -561,14 +573,7 @@ class HouseholdKanbanCard extends LitElement {
       ${this._narrow ? this._renderNarrow(env, ctx, scoped, people, parents) : html`
       ${renderFilters(env, f, people, scoped, (patch) => { this._filter = { ...f, ...patch }; })}
       ${renderBoard(shown, {
-        board: { ...board, parents }, ctx, group: f.group, who: f.who, parent: f.parent,
-        expanded: this._expanded,
-        onExpand: (id, on) => {
-          const next = new Set(this._expanded);
-          if (on) next.add(id); else next.delete(id);
-          this._expanded = next;
-        },
-        onFocus: (id) => { this._filter = { ...f, parent: id }; },
+        ctx, group: f.group,
         onAdd: (col) => this._add(col, parents, ctx),
         onHistory: () => this._openHistory(".col[data-col=\"done\"] .note-btn"),
       }, env)}`}
@@ -639,16 +644,9 @@ class HouseholdKanbanCard extends LitElement {
       const meta = p ? { icon: p.icon, color: p.color, title: p.name } : { ...TILE_META[col], title: t(env.lang, `col_${col}` as Key) };
       sheet = renderSheet({
         ...meta, count: list.length, isDone: col === "done" && !p,
-        entries: sh.kind === "col" && col !== "done" ? stackItems(list, parents, null) : list,
+        entries: list,
         olderDone: items.filter((i) => i.status === "completed").length - list.length,
         menu: this._menu ? items.find((i) => i.uid === this._menu) : undefined,
-        expanded: this._expanded,
-        onExpand: (id, on) => {
-          const next = new Set(this._expanded);
-          if (on) next.add(id); else next.delete(id);
-          this._expanded = next;
-        },
-        onFocus: (id) => this._openSheet("parent", id, this._sheetReturn ?? ""),
         onClose: () => this._closeSheet(),
         onCancel: () => this._sheetCancel(),
         onHistory: () => this._openHistory(".sheet .hist-link"),

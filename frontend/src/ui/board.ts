@@ -1,21 +1,16 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { columnOf, type ColumnId, type Ctx } from "../logic/columns";
 import { compareItems } from "../logic/sort";
-import { stackItems, type Stack } from "../logic/stack";
 import { t, type Key } from "../i18n";
-import type { Board, Item } from "../types";
-import { renderItem, renderStack, type Env } from "./item-card";
+import type { Item } from "../types";
+import { renderItem, type Env } from "./item-card";
 
 export const ALL_COLUMNS: ColumnId[] = ["todo", "later", "week", "overdue", "today", "done"];
 
 interface Col { id: string; label: string; led?: string; items: Item[]; done?: boolean }
 
 export interface BoardView {
-  board: Board; ctx: Ctx; group: "date" | "priority";
-  who: string | null; parent: string | null;
-  expanded: Set<string>;
-  onExpand: (parentId: string, on: boolean) => void;
-  onFocus: (parentId: string) => void;
+  ctx: Ctx; group: "date" | "priority";
   /** Column "+": `col` is a ColumnId, or p1/p2/p3 in priority grouping. */
   onAdd: (col: string) => void;
   onHistory: () => void;
@@ -46,18 +41,15 @@ export function buildColumns(items: Item[], v: Pick<BoardView, "ctx" | "group">,
 export function renderBoard(items: Item[], v: BoardView, env: Env): TemplateResult {
   const { cols, olderDone } = buildColumns(items, v, env.lang);
   return html`<div class="board">${cols.map((col) => {
-    const entries: (Item | Stack)[] = col.done ? col.items : stackItems(col.items, v.board.parents, v.parent);
     return html`<section class="col" data-col=${col.id}>
       <div class="col-head">
         <span class="led" style=${col.led ? `background:${col.led}` : ""}></span>
         <span class="label">${col.label}</span><span class="count">${col.items.length}</span>
         ${col.done || col.id === "overdue" ? nothing : html`<button class="add" type="button" aria-label=${`${t(env.lang, "add_here")}: ${col.label}`} @click=${() => v.onAdd(col.id)}>+</button>`}
       </div>
-      ${entries.map((e) => "items" in e
-        ? renderStack(e, env, v.expanded.has(e.parent.id), v.onExpand, v.onFocus)
-        : renderItem(e, env, v.group === "date"))}
+      ${col.items.map((e) => renderItem(e, env, v.group === "date"))}
       ${col.done ? html`<button class="note note-btn" type="button" @click=${v.onHistory}>${t(env.lang, "done_note", { days: v.ctx.doneDays, older: olderDone })}</button>` : nothing}
-      ${!col.done && entries.length === 0 ? html`<div class="empty">${t(env.lang, "nothing")}</div>` : nothing}
+      ${!col.done && col.items.length === 0 ? html`<div class="empty">${t(env.lang, "nothing")}</div>` : nothing}
     </section>`;
   })}</div>`;
 }

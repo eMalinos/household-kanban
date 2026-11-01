@@ -11,7 +11,7 @@ const item = (uid: string, o: Partial<Item> = {}): Item => ({
   priority: 2, assignee: null, created_at: "2026-10-01T08:00:00+00:00", completed_at: null, moved: 0, raised: false, ...o,
 });
 const board = (items: Item[]): Board => ({
-  parents: [{ id: "household", entity_id: "todo.household", name: "Household", icon: "mdi:home", color: "blue", collapse: false }],
+  parents: [{ id: "household", entity_id: "todo.household", name: "Household", icon: "mdi:home", color: "blue", checklist: false }],
   items, end_of_day_mode: "keep",
 });
 

@@ -1,21 +1,17 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { ColumnId } from "../logic/columns";
-import type { Stack } from "../logic/stack";
 import { t } from "../i18n";
 import type { Item } from "../types";
-import { colorClass, renderItem, renderStack, type Env } from "./item-card";
+import { colorClass, renderItem, type Env } from "./item-card";
 
 const MOVE_TARGETS: ColumnId[] = ["today", "week", "todo", "done"];
 
 export interface SheetView {
   title: string; icon: string; color: string;
-  entries: (Item | Stack)[]; count: number;
+  entries: Item[]; count: number;
   isDone: boolean; olderDone: number;
   /** uid of the item whose "Move to…" menu is open. */
   menu?: Item;
-  expanded: Set<string>;
-  onExpand: (parentId: string, on: boolean) => void;
-  onFocus: (parentId: string) => void;
   onClose: () => void;
   /** Esc: closes the menu when open, the sheet otherwise. */
   onCancel: () => void;
@@ -39,9 +35,7 @@ export function renderSheet(v: SheetView, env: Env): TemplateResult {
     </div>
     <div class="sheet-list" @pointerdown=${v.press.down} @pointermove=${v.press.move} @pointerup=${v.press.end}
       @pointercancel=${v.press.end} @pointerleave=${v.press.end} @contextmenu=${(e: Event) => e.preventDefault()}>
-      ${v.entries.map((e) => "items" in e
-        ? renderStack(e, env, v.expanded.has(e.parent.id), v.onExpand, v.onFocus)
-        : renderItem(e, env, true))}
+      ${v.entries.map((e) => renderItem(e, env, true))}
       ${v.entries.length === 0 ? html`<div class="empty">${t(env.lang, "nothing")}</div>` : nothing}
       ${v.isDone ? html`<button class="pill-btn hist-link" type="button" @click=${v.onHistory}>${t(env.lang, "older_history", { n: v.olderDone })}</button>` : nothing}
     </div>

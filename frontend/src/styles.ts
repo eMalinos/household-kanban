@@ -80,7 +80,6 @@ export const styles = css`
   .row.top { align-items: flex-start; gap: 10px; }
   .parent-name { font-size: 12px; font-weight: 600; color: var(--kb-text-2); flex: 1; min-width: 0; }
   .check { width: 22px; height: 22px; flex: none; padding: 0; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--kb-border); background: var(--kb-card); color: transparent; }
-  .check.xs { width: 20px; height: 20px; margin: 0; }
   .check[aria-pressed="true"] { border: 0; background: rgb(var(--c-green)); color: #fff; }
   .title { flex: 1; text-align: left; border: 0; background: transparent; padding: 0; min-width: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.2px; line-height: 1.3; overflow-wrap: anywhere; }
   .done .title { color: var(--kb-text-2); text-decoration: line-through; }
@@ -89,11 +88,25 @@ export const styles = css`
   .pill.prio-3, .pill.later { background: var(--kb-fill); color: var(--kb-text-2); }
   .pill.today { background: var(--kb-warm); color: var(--kb-warm-text); }
 
-  .stack-head { font-size: 14px; font-weight: 700; flex: 1; min-width: 0; }
-  .stack-sub { font-size: 12px; font-weight: 600; color: var(--kb-text-2); }
-  .stack-rows { display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 12px; background: var(--kb-fill); box-shadow: var(--kb-inset); }
-  .stack-rows .item { display: flex; align-items: center; gap: 10px; padding: 5px 6px; font-size: 14px; font-weight: 500; }
-  .stack-rows .item span.t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .cl-bar { height: 4px; border-radius: 999px; background: var(--kb-fill); overflow: hidden; }
+  .cl-bar span { display: block; height: 100%; background: rgb(var(--c-green)); }
+  .cl { display: flex; flex-direction: column; gap: 2px; }
+  .cl-row { display: flex; align-items: center; gap: 10px; padding: 5px 4px; border: 0; border-radius: 8px; background: transparent; text-align: left; font-size: 14px; color: var(--kb-text); }
+  .cl-row .cl-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .cl-box, .cl-check { width: 18px; height: 18px; flex: none; box-sizing: border-box; border-radius: 6px; display: grid; place-items: center; padding: 0; border: 2px solid var(--kb-border); background: var(--kb-card); color: transparent; }
+  .cl-row[aria-checked="true"] .cl-box, .cl-check[aria-checked="true"] { border: 0; background: rgb(var(--c-green)); color: #fff; }
+  .cl-row[aria-checked="true"] .cl-t, .cl-item.done .cl-text { color: var(--kb-text-2); text-decoration: line-through; }
+  .cl-more { align-self: flex-start; }
+  .cl-alldone { display: flex; align-items: center; gap: 8px; padding: 4px; font-size: 13px; font-weight: 600; color: rgb(var(--c-green)); }
+  .cl-alldone span { flex: 1; }
+  .cl-box-list { display: flex; flex-direction: column; padding: 4px; border-radius: 16px; background: var(--kb-fill); box-shadow: var(--kb-inset); }
+  .cl-item { display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 10px; border-radius: 12px; }
+  .cl-item.first-done { border-top: 1px dashed var(--kb-border); margin-top: 4px; padding-top: 10px; }
+  .cl-check { width: 22px; height: 22px; border-radius: 7px; }
+  .cl-text { flex: 1; min-width: 0; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+  .cl-x { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 0; background: transparent; color: var(--kb-text-2); display: grid; place-items: center; padding: 0; opacity: 0.7; }
+  .cl-add { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-top: 1px solid var(--kb-border); margin-top: 4px; color: var(--kb-accent); font-size: 18px; font-weight: 600; }
+  .cl-add input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 4px 0; font-size: 15px; font-weight: 400; color: var(--kb-text); }
   .link { border: 0; background: transparent; padding: 4px 6px; text-align: left; font-size: 13px; font-weight: 600; color: var(--kb-warm-text); display: flex; align-items: center; gap: 4px; }
   .link.muted { color: var(--kb-text-2); }
   .notice { padding: 8px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; background: rgba(var(--c-red), 0.14); color: rgb(var(--c-red)); }
