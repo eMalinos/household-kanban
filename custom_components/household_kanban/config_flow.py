@@ -41,6 +41,7 @@ from .const import (
     END_OF_DAY_MODES,
     PARENT_COLORS,
 )
+from .notify import offered_services
 from .store import KanbanStore, ParentData
 
 
@@ -241,11 +242,7 @@ class KanbanOptionsFlow(OptionsFlow):
         if user_input is not None:
             user_input[CONF_NOTIFY_TIME] = user_input[CONF_NOTIFY_TIME][:5]  # "HH:MM"
             return self.async_create_entry(data={**options, **user_input})
-        offered = sorted(
-            f"notify.{name}"
-            for name in self.hass.services.async_services_for_domain("notify")
-            if name.startswith("mobile_app_")
-        )
+        offered = offered_services(self.hass)
         schema = vol.Schema(
             {
                 vol.Required(
