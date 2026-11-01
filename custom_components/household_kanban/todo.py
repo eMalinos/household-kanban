@@ -109,15 +109,23 @@ class KanbanTodoList(TodoListEntity):
         parent = next(p for p in self._store.parents if p.id == self._parent_id)
         text = " ".join((item.summary or "").split())
         if parent.checklist and status == STATUS_NEEDS_ACTION and text:
-            # No await between the lookup and the store write, so two
-            # concurrent adds cannot both create a new note.
+            # A line only: description/due of an external add are dropped by
+            # design on a checklist list. No await between the lookup and the
+            # store write, so two concurrent adds cannot both create a new note.
             open_notes = [
                 i
                 for i in self._store.items.values()
                 if i.parent == self._parent_id and i.status == STATUS_NEEDS_ACTION
             ]
             if open_notes:
-                newest = max(open_notes, key=lambda i: i.created_at)
+                # the newest note that already is a list, else the newest note
+                newest = max(
+                    open_notes,
+                    key=lambda i: (
+                        bool(checklist.split(i.description)[1]),
+                        i.created_at,
+                    ),
+                )
                 await self._store.async_update_item(
                     newest.uid, description=checklist.append(newest.description, text)
                 )

@@ -99,3 +99,31 @@ async def test_parents_add_checklist(hass, entry, hass_ws_client):
     )
     assert (await client.receive_json())["success"]
     assert next(p for p in entry.runtime_data.parents if p.id == "s").checklist
+
+
+async def test_assist_prefers_newest_note_with_lines(hass, entry):
+    store = entry.runtime_data
+    await store.async_add_parent("Shop", "mdi:cart", "green", True)
+    await hass.async_block_till_done()
+    old = await store.async_add_item(
+        "shop", "Old", description="- [ ] eggs", created_at="2026-01-01T00:00:00+00:00"
+    )
+    await store.async_add_item(
+        "shop", "Older plain", created_at="2025-01-01T00:00:00+00:00"
+    )
+    await store.async_add_item(
+        "shop", "Newer plain", created_at="2026-06-01T00:00:00+00:00"
+    )
+    await _add(hass, "todo.shop", "milk")
+    assert store.items[old.uid].description == "- [ ] eggs\n- [ ] milk"
+    assert len(_notes(store, "shop")) == 3
+
+
+async def test_assist_new_note_named_by_language(hass, entry):
+    hass.config.language = "cs"
+    store = entry.runtime_data
+    await store.async_add_parent("Shop", "mdi:cart", "green", True)
+    await hass.async_block_till_done()
+    await _add(hass, "todo.shop", "mléko")
+    [note] = _notes(store, "shop")
+    assert (note.summary, note.description) == ("Nákup", "- [ ] mléko")

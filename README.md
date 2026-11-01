@@ -32,6 +32,8 @@ Settings → Devices & services → Household Kanban → Configure.
 - **Notifications** (off by default): a morning summary of what the end of day changed, with action buttons. Settings: on/off, time (default `08:00`), notify assignees on their own phone, and the notify services that receive unassigned items (and items of people without a phone).
 - **Parents**: add, edit (name, icon, colour, shopping list: items go into one note) or remove a parent. Removing moves its items and history to another parent. *Household* always exists; it can be renamed, not removed.
 
+A list marked *Shopping list* collects what Assist or the HA app adds as lines of the newest open shopping note (preferring one that already has lines), or of a new "Shopping" / "Nákup" note when none is open. Ticks are stored as `- [ ]` / `- [x]` lines at the end of the item description, so other to-do clients still see readable text. Notes support basic markdown: bold, italic, bullets and links.
+
 Completed items stay in their entity for 30 days, then move to an archive; the History dialog searches both and never deletes.
 
 ## Card
