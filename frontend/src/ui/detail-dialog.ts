@@ -8,6 +8,8 @@ import { avatar, parentDot, personName } from "./item-card";
 /** Editable copy of a task; `uid` unset = a new one. */
 export interface Draft {
   uid?: string; status: Item["status"];
+  /** The task title when opened, the dialog's accessible name. */
+  heading: string;
   parent: string; summary: string; description: string;
   priority: Priority; assignee: string | null;
   date: string; time: string;
@@ -16,14 +18,14 @@ export interface Draft {
 
 export function draftOf(item: Item): Draft {
   return {
-    uid: item.uid, status: item.status, parent: item.parent, summary: item.summary, description: item.description,
+    uid: item.uid, status: item.status, heading: item.summary, parent: item.parent, summary: item.summary, description: item.description,
     priority: item.priority, assignee: item.assignee,
     date: item.due ? ymd(parseDue(item.due).date) : "", time: dueTime(item.due), confirmDelete: false,
   };
 }
 
 export function emptyDraft(parent: string, preset: Partial<Pick<Draft, "date" | "priority">> = {}): Draft {
-  return { status: "needs_action", parent, summary: "", description: "", priority: 2, assignee: null, date: "", time: "", confirmDelete: false, ...preset };
+  return { status: "needs_action", heading: "", parent, summary: "", description: "", priority: 2, assignee: null, date: "", time: "", confirmDelete: false, ...preset };
 }
 
 export function fieldsOf(d: Draft): ItemFields & { summary: string } {
@@ -69,10 +71,10 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
   const isNew = !d.uid;
   const quick: Quick[] = ["today", "tomorrow", "weekend", "none"];
   const onBackdrop = (ev: Event) => { if (ev.target === ev.currentTarget) e.onClose(); };
-  return html`<dialog class="kb-dialog" aria-labelledby="kb-dlg-title" @close=${e.onClose} @click=${onBackdrop}>
+  return html`<dialog class="kb-dialog" aria-label=${isNew ? L("new_task") : d.heading} @close=${e.onClose} @click=${onBackdrop}>
     <div class="dlg">
       <div class="dlg-head">
-        <span class="dlg-kicker" id="kb-dlg-title">${isNew ? L("new_note") : L("f_title")}</span>
+        <span class="dlg-kicker">${isNew ? L("new_note") : L("f_title")}</span>
         ${isNew ? nothing : html`<button class="pill-btn ${d.status === "completed" ? "on" : ""}" type="button" @click=${e.onToggleDone}>
           ${L(d.status === "completed" ? "mark_open" : "mark_done")}</button>`}
         <button class="round-btn" type="button" aria-label=${L("close")} @click=${e.onClose}>

@@ -53,6 +53,10 @@ class HouseholdKanbanCard extends LitElement {
   private _ctx?: Ctx;
   private _down?: { x: number; y: number; t: number };
   private _sortables = new Map<HTMLElement, Sortable>();
+  private _dragFrom?: { parent: Node; next: Node | null };
+  private _pending?: Board;
+  private _seq = 0; // bumped per opened dialog, so a late write cannot touch a newer one
+  private _returnTo?: string;
   private _unsub?: Promise<() => void>;
   private _retry?: number;
   private _attempts = 0;
@@ -91,7 +95,10 @@ class HouseholdKanbanCard extends LitElement {
   /** Subscribe once; on failure retry on a capped backoff timer, never on hass updates. */
   private _subscribe(): void {
     if (this._unsub || this._retry !== undefined || !this.hass || !this.isConnected) return;
-    const p = subscribeBoard(this.hass, (board) => { this._board = board; this._loadFailed = false; });
+    const p = subscribeBoard(this.hass, (board) => {
+      if (this._dragFrom) { this._pending = board; return; } // applied when the drag ends
+      this._board = board; this._loadFailed = false;
+    });
     this._unsub = p;
     p.then(() => { if (this._unsub === p) this._attempts = 0; }, () => {
       if (this._unsub !== p) return; // a newer subscription replaced this one
@@ -108,14 +115,15 @@ class HouseholdKanbanCard extends LitElement {
 
   /** Run a write from inside the dialog; close it on success, show the error in it otherwise. */
   private async _dialogWrite(err: Key, write: () => Promise<unknown>): Promise<void> {
+    const seq = this._seq;
     this._busy = true;
     this._dlgError = undefined;
     try {
       await write();
-      this._draft = undefined;
+      if (seq === this._seq) this._draft = undefined;
     } catch (e) {
       console.warn("household_kanban: write failed", e);
-      this._dlgError = err;
+      if (seq === this._seq) this._dlgError = err;
     } finally {
       this._busy = false;
     }
@@ -125,6 +133,7 @@ class HouseholdKanbanCard extends LitElement {
     const hass = this.hass, d = this._draft;
     if (!hass || !d) return;
     const item = d.uid ? this._board?.items.find((i) => i.uid === d.uid) : undefined;
+    if (d.uid && !item) { this._dlgError = "err_save"; return; } // deleted meanwhile: never turn an edit into a create
     void this._dialogWrite("err_save", () => item
       ? updateItem(hass, item.uid, changedFields(item, d))
       : createItem(hass, fieldsOf(d)));
@@ -133,20 +142,27 @@ class HouseholdKanbanCard extends LitElement {
   /** Tap on a card; a click that ends a drag is not a tap. */
   private _open(item: Item, ev: Event): void {
     const me = ev as MouseEvent, down = this._down;
-    if (down && isDrag(me.clientX - down.x, me.clientY - down.y, ev.timeStamp - down.t)) return;
-    this._dlgError = undefined;
-    this._draft = draftOf(item);
+    this._down = undefined;
+    // detail 0 = keyboard activation: there is no pointer to compare with
+    if (me.detail !== 0 && down && isDrag(me.clientX - down.x, me.clientY - down.y, ev.timeStamp - down.t)) return;
+    this._openDialog(draftOf(item), `[data-uid="${item.uid}"] .title`);
   }
 
-  private _add(col: string, parents: { id: string }[], ctx: Ctx): void {
+  private _openDialog(draft: Draft, returnTo: string): void {
+    this._seq++;
+    this._dlgError = undefined;
+    this._returnTo = returnTo;
+    this._draft = draft;
+  }
+
+  private _add(col: string, parents: { id: string }[], ctx: Ctx, returnTo = `.col[data-col="${col}"] .add`): void {
     const parent = this._filter.parent ?? parents.find((p) => p.id === "household")?.id ?? parents[0]?.id;
     if (!parent) return;
     const prio = /^p([123])$/.exec(col);
     const date: Partial<Record<string, string>> = {
       today: quickDate("today", ctx.now), week: ymd(ctx.week.end), later: ymd(addDays(ctx.week.end, 1)),
     };
-    this._dlgError = undefined;
-    this._draft = emptyDraft(parent, prio ? { priority: Number(prio[1]) as Priority } : { date: date[col] ?? "" });
+    this._openDialog(emptyDraft(parent, prio ? { priority: Number(prio[1]) as Priority } : { date: date[col] ?? "" }), returnTo);
   }
 
   /** One Sortable per column; Lit owns the DOM, so a drop is undone here and the next board push re-renders. */
@@ -156,15 +172,18 @@ class HouseholdKanbanCard extends LitElement {
     const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
     for (const el of cols) {
       if (this._sortables.has(el)) continue;
-      let next: Element | null = null;
       this._sortables.set(el, Sortable.create(el, {
         group: { name: "kb", pull: true, put: (to) => (to.el as HTMLElement).dataset.col !== "overdue" },
         draggable: "[data-uid]", filter: ".check", preventOnFilter: false, sort: false,
         delay: 150, delayOnTouchOnly: true, touchStartThreshold: 8, forceFallback: touch,
-        onStart: (e) => { next = e.item.nextElementSibling; },
+        // the exact node after the card is its own Lit end marker, so the card goes back inside its part
+        onStart: (e) => { this._dragFrom = { parent: e.item.parentNode as Node, next: e.item.nextSibling }; },
         onEnd: (e) => {
-          e.from.insertBefore(e.item, next);
+          const from = this._dragFrom;
+          this._dragFrom = undefined;
+          if (from) from.parent.insertBefore(e.item, from.next && from.next.parentNode === from.parent ? from.next : null);
           if (e.to !== e.from) this._drop(e.item.dataset.uid, (e.to as HTMLElement).dataset.col);
+          if (this._pending) { this._board = this._pending; this._loadFailed = false; this._pending = undefined; }
         },
       }));
     }
@@ -188,7 +207,13 @@ class HouseholdKanbanCard extends LitElement {
   protected updated(): void {
     this._syncSortables();
     const dlg = this.renderRoot.querySelector("dialog");
-    if (dlg && !dlg.open) dlg.showModal();
+    if (dlg && !dlg.open) {
+      dlg.showModal();
+      if (!this._draft?.uid) this.renderRoot.querySelector<HTMLElement>("#kb-title")?.focus();
+    } else if (!dlg && this._returnTo) {
+      this.renderRoot.querySelector<HTMLElement>(this._returnTo)?.focus();
+      this._returnTo = undefined;
+    }
   }
 
   protected render() {
@@ -226,7 +251,7 @@ class HouseholdKanbanCard extends LitElement {
       ${this._notice ? html`<div class="notice" role="alert">${t(lang, this._notice)}</div>` : nothing}
       <header>
         <div class="titles"><h1>${t(lang, "title")}</h1><div class="summary">${this._summary(scoped, ctx, lang)}</div></div>
-        <button class="new" type="button" @click=${() => this._add("todo", parents, ctx)}>+ ${t(lang, "new_note")}</button>
+        <button class="new" type="button" @click=${() => this._add("todo", parents, ctx, "header .new")}>+ ${t(lang, "new_note")}</button>
       </header>
       ${renderFilters(env, f, people, scoped, (patch) => { this._filter = { ...f, ...patch }; })}
       ${renderBoard(shown, {
@@ -246,8 +271,15 @@ class HouseholdKanbanCard extends LitElement {
         onSave: () => this._save(),
         onClose: () => { this._draft = undefined; },
         onToggleDone: () => {
-          const d = this._draft;
-          if (d?.uid) void this._dialogWrite("err_update", () => setStatus(hass, d.uid as string, d.status === "completed" ? "needs_action" : "completed"));
+          const d = this._draft, uid = d?.uid;
+          if (!d || !uid) return;
+          const orig = this._board?.items.find((i) => i.uid === uid);
+          if (!orig) { this._dlgError = "err_update"; return; }
+          const fields = changedFields(orig, d);
+          void this._dialogWrite("err_update", async () => {
+            if (Object.keys(fields).length) await updateItem(hass, uid, fields); // keep unsaved edits
+            await setStatus(hass, uid, d.status === "completed" ? "needs_action" : "completed");
+          });
         },
         onDelete: () => {
           const d = this._draft;
