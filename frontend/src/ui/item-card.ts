@@ -16,8 +16,9 @@ export interface Env {
   onOpen: (item: Item, ev: Event) => void;
 }
 
-const COLORS = ["red", "orange", "yellow", "green", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "grey"];
-export const colorClass = (c: string) => `c-${COLORS.includes(c) ? c : "grey"}`;
+/** Mirrors const.py PARENT_COLORS. */
+export const PARENT_COLORS = ["red", "orange", "yellow", "green", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "grey"];
+export const colorClass = (c: string) => `c-${PARENT_COLORS.includes(c) ? c : "grey"}`;
 
 export function personName(hass: Hass, entityId: string): string {
   return String(hass.states[entityId]?.attributes.friendly_name ?? entityId.split(".")[1] ?? entityId);

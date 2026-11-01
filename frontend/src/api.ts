@@ -1,4 +1,4 @@
-import type { Board, Item } from "./types";
+import type { Board, EodMode, Item, Parent } from "./types";
 
 /** The slice of the Home Assistant frontend `hass` object this card uses. */
 export interface Hass {
@@ -53,4 +53,34 @@ export function fetchDashboard(hass: Hass, urlPath: string | null): Promise<unkn
 
 export function saveDashboard(hass: Hass, urlPath: string | null, config: unknown): Promise<unknown> {
   return hass.connection.sendMessagePromise({ type: "lovelace/config/save", url_path: urlPath, config });
+}
+
+/** Household-wide options of the integration (the options flow edits the same data). */
+export interface Settings {
+  end_of_day_mode: EodMode; close_time: string; // "HH:MM"
+  notify_enabled: boolean; notify_time: string; notify_assignee: boolean;
+  notify_services: string[]; // "notify.mobile_app_*"
+  offered_services: string[]; // currently registered notify.mobile_app_* (sorted)
+}
+export type SettingsPatch = Partial<Omit<Settings, "offered_services">>;
+export type ParentFields = Pick<Parent, "name" | "icon" | "color" | "collapse">;
+
+export function getSettings(hass: Hass): Promise<Settings> {
+  return hass.connection.sendMessagePromise({ type: `${DOMAIN}/settings` });
+}
+
+export function updateSettings(hass: Hass, patch: SettingsPatch): Promise<Settings> {
+  return hass.connection.sendMessagePromise({ type: `${DOMAIN}/settings/update`, ...patch });
+}
+
+export function addParent(hass: Hass, p: ParentFields): Promise<Parent> {
+  return hass.connection.sendMessagePromise({ type: `${DOMAIN}/parents/add`, ...p });
+}
+
+export function updateParent(hass: Hass, id: string, patch: Partial<ParentFields>): Promise<Parent> {
+  return hass.connection.sendMessagePromise({ type: `${DOMAIN}/parents/update`, parent_id: id, ...patch });
+}
+
+export function removeParent(hass: Hass, id: string, target: string): Promise<null> {
+  return hass.connection.sendMessagePromise({ type: `${DOMAIN}/parents/remove`, parent_id: id, target });
 }

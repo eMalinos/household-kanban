@@ -1,6 +1,9 @@
 import { LitElement, html, nothing, type PropertyValues } from "lit";
 import Sortable from "sortablejs";
-import { createItem, deleteItem, fetchDashboard, fetchHistory, saveDashboard, setStatus, subscribeBoard, updateItem, type Hass } from "./api";
+import {
+  addParent, createItem, deleteItem, fetchDashboard, fetchHistory, getSettings, removeParent, saveDashboard, setStatus,
+  subscribeBoard, updateItem, updateParent, updateSettings, type Hass,
+} from "./api";
 import { addDays, firstWeekday, parseDue, startOfDay, weekRange, ymd } from "./logic/dates";
 import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
@@ -20,7 +23,7 @@ import { compareItems } from "./logic/sort";
 import { stackItems } from "./logic/stack";
 import { renderFilters, type FilterState } from "./ui/filters";
 import { renderHistory, type HistoryState } from "./ui/history-dialog";
-import { renderSettings, type SettingsState } from "./ui/settings-dialog";
+import { NEW_PARENT, renderSettings, settingsPatch, type ParentForm, type SettingsState } from "./ui/settings-dialog";
 import type { Env } from "./ui/item-card";
 
 
@@ -215,29 +218,91 @@ class HouseholdKanbanCard extends LitElement {
     this._settings = { tab: "board", draft: { ...this._config }, saving: false, narrow: this._narrow };
   }
 
-  /** Write the draft into this card's entry of the dashboard config; HA reloads the dashboard after the save. */
+  /** Save the changed sides: the board options into the dashboard, then the household settings. One failing does not stop or undo the other. */
   private async _saveSettings(): Promise<void> {
     const hass = this.hass, st = this._settings, seq = this._seq;
     if (!hass || !st || st.saving) return;
-    const set = (patch: Partial<SettingsState>) => { if (seq === this._seq && this._settings) this._settings = { ...this._settings, ...patch }; };
+    const live = () => seq === this._seq && !!this._settings; // Cancel/Escape meanwhile: write nothing more
+    const set = (patch: Partial<SettingsState>) => { if (live()) this._settings = { ...this._settings as SettingsState, ...patch }; };
     set({ saving: true, error: undefined });
+    const config = normalizeConfig(st.draft);
+    let error = JSON.stringify(config) === JSON.stringify(this._config) ? undefined : await this._saveDashboard(hass, config, live);
+    const patch = settingsPatch(st.server, st.eod);
+    if (patch && live()) {
+      try {
+        const server = await updateSettings(hass, patch);
+        set({ server }); // a retry after a dashboard error sends only what is still different
+      } catch (err) {
+        console.warn("household_kanban: settings update failed", err);
+        error ??= "err_settings";
+      }
+    }
+    if (!live()) return;
+    if (error) set({ saving: false, error }); else this._settings = undefined;
+  }
+
+  /** Write the config into this card's entry of the dashboard config; HA reloads the dashboard after the save. */
+  private async _saveDashboard(hass: Hass, config: CardConfig, live: () => boolean): Promise<Key | undefined> {
     const urlPath = dashboardUrlPath(window.location.pathname);
     try {
       const dash = await fetchDashboard(hass, urlPath);
-      if (dash && typeof dash === "object" && "strategy" in dash) { set({ saving: false, error: "err_not_editable" }); return; }
-      const next = mergeConfig(this._raw, normalizeConfig(st.draft));
+      if (dash && typeof dash === "object" && "strategy" in dash) return "err_not_editable";
+      const next = mergeConfig(this._raw, config);
       const r = replaceCard(dash, this._raw, next);
-      if (r.matches !== 1) { set({ saving: false, error: r.matches ? "err_card_ambiguous" : "err_card_missing" }); return; }
+      if (r.matches !== 1) return r.matches ? "err_card_ambiguous" : "err_card_missing";
+      if (!live()) return undefined;
       await saveDashboard(hass, urlPath, r.config);
-      if (seq !== this._seq) return;
-      this.setConfig(next as unknown as CardConfig);
-      this._settings = undefined;
+      this.setConfig(next as unknown as CardConfig); // saved: the card follows even if the dialog is gone
+      return undefined;
     } catch (err) {
       console.warn("household_kanban: dashboard save failed", err);
       const e = err as { code?: string; message?: string } | undefined;
       const locked = e?.code === "config_not_editable" || e?.code === "config_not_found" || /yaml/i.test(e?.message ?? "");
-      set({ saving: false, error: locked ? "err_not_editable" : "err_settings" });
+      return locked ? "err_not_editable" : "err_settings";
     }
+  }
+
+  /** Household settings, loaded when the End of day tab first opens. */
+  private async _loadEod(): Promise<void> {
+    const hass = this.hass, st = this._settings, seq = this._seq;
+    if (!hass || !st || st.server || st.eodLoading) return;
+    const set = (patch: Partial<SettingsState>) => { if (seq === this._seq && this._settings) this._settings = { ...this._settings, ...patch }; };
+    set({ eodLoading: true, error: undefined });
+    try {
+      const server = await getSettings(hass);
+      set({ server, eod: server, eodLoading: false });
+    } catch (err) {
+      console.warn("household_kanban: settings load failed", err);
+      set({ eodLoading: false, error: "err_load_settings" });
+    }
+  }
+
+  /** Add, edit or remove a list right away; the new board arrives through the subscription. */
+  private async _parentWrite(write: (hass: Hass) => Promise<unknown>): Promise<void> {
+    const hass = this.hass, form = this._settings?.form, seq = this._seq;
+    if (!hass || !form || form.busy) return;
+    // the same form (by list id) is still open in the same dialog
+    const mine = () => seq === this._seq && this._settings?.form?.id === form.id;
+    const setForm = (f: ParentForm | undefined) => { if (mine() && this._settings) this._settings = { ...this._settings, form: f }; };
+    setForm({ ...form, busy: true, error: false });
+    try {
+      await write(hass);
+      setForm(undefined);
+    } catch (err) {
+      console.warn("household_kanban: list write failed", err);
+      if (mine()) setForm({ ...this._settings?.form as ParentForm, busy: false, error: true });
+    }
+  }
+
+  private _saveParent(): void {
+    const f = this._settings?.form;
+    if (!f) return;
+    const fields = { name: f.name.trim(), icon: f.icon.trim() || NEW_PARENT.icon, color: f.color, collapse: f.collapse };
+    if (!f.id) { void this._parentWrite((hass) => addParent(hass, fields)); return; }
+    const orig = this._board?.parents.find((p) => p.id === f.id);
+    const patch = Object.fromEntries(Object.entries(fields).filter(([k, v]) => !orig || orig[k as keyof typeof fields] !== v));
+    if (!Object.keys(patch).length) { if (this._settings) this._settings = { ...this._settings, form: undefined }; return; }
+    void this._parentWrite((hass) => updateParent(hass, f.id as string, patch));
   }
 
   private _openHistory(returnTo: string): void {
@@ -508,8 +573,18 @@ class HouseholdKanbanCard extends LitElement {
       }) : nothing}
       ${this._settings ? renderSettings({ ...this._settings, narrow: this._narrow }, {
         hass, lang, parents: board.parents, people: Object.keys(hass.states).filter((id) => id.startsWith("person.")),
-        onTab: (tab) => { if (this._settings) this._settings = { ...this._settings, tab }; },
+        onTab: (tab) => {
+          if (this._settings) this._settings = { ...this._settings, tab };
+          if (tab === "eod") void this._loadEod();
+        },
         onChange: (patch) => { if (this._settings) this._settings = { ...this._settings, draft: { ...this._settings.draft, ...patch }, error: undefined }; },
+        onEod: (patch) => { const s = this._settings; if (s?.eod) this._settings = { ...s, eod: { ...s.eod, ...patch }, error: undefined }; },
+        onForm: (form) => { if (this._settings) this._settings = { ...this._settings, form }; },
+        onFormSave: () => this._saveParent(),
+        onFormRemove: () => {
+          const f = this._settings?.form;
+          if (f?.id && f.target) void this._parentWrite((hass) => removeParent(hass, f.id as string, f.target as string));
+        },
         onSave: () => void this._saveSettings(),
         onClose: () => { this._seq++; this._settings = undefined; },
       }) : nothing}

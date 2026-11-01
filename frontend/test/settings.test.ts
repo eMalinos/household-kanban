@@ -166,17 +166,27 @@ describe("settings dialog", () => {
     expect(savedCard().people).toEqual(["person.anna"]);
   });
 
-  test("pencil and Add list are disabled; eod tab is a placeholder", async () => {
+  test("pencil and Add list are enabled; eod tab is household scope", async () => {
     await make(true);
     click("header .gear-btn");
     await settle();
     click('.kb-settings [role="tab"][data-tab="lists"]');
     await settle();
-    expect($(".kb-settings .add-list")?.hasAttribute("disabled")).toBe(true);
-    expect($(".kb-settings .edit-list")?.hasAttribute("disabled")).toBe(true);
+    expect($(".kb-settings .add-list")?.hasAttribute("disabled")).toBe(false);
+    expect($(".kb-settings .edit-list")?.hasAttribute("disabled")).toBe(false);
     click('.kb-settings [role="tab"][data-tab="eod"]');
     await settle();
     expect($(".kb-settings .scope.household")).not.toBeNull();
+    expect(sent.map((m) => m.type)).toEqual(["household_kanban/settings"]);
+  });
+
+  test("save without changes writes nothing and closes", async () => {
+    await make(true);
+    click("header .gear-btn");
+    await settle();
+    click(".kb-settings .primary-btn");
+    await settle();
     expect(sent).toHaveLength(0);
+    expect($("dialog.kb-settings")).toBeNull();
   });
 });
