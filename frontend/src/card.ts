@@ -269,13 +269,13 @@ class HouseholdKanbanCard extends LitElement {
     const hass = this.hass, st = this._settings, seq = this._seq;
     if (!hass || !st || st.server || st.eodLoading) return;
     const set = (patch: Partial<SettingsState>) => { if (seq === this._seq && this._settings) this._settings = { ...this._settings, ...patch }; };
-    set({ eodLoading: true, error: undefined });
+    set({ eodLoading: true, eodError: false });
     try {
       const server = await getSettings(hass);
       set({ server, eod: server, eodLoading: false });
     } catch (err) {
       console.warn("household_kanban: settings load failed", err);
-      set({ eodLoading: false, error: "err_load_settings" });
+      set({ eodLoading: false, eodError: true });
     }
   }
 
@@ -604,6 +604,7 @@ class HouseholdKanbanCard extends LitElement {
         },
         onChange: (patch) => { if (this._settings) this._settings = { ...this._settings, draft: { ...this._settings.draft, ...patch }, error: undefined }; },
         onEod: (patch) => { const s = this._settings; if (s?.eod) this._settings = { ...s, eod: { ...s.eod, ...patch }, error: undefined }; },
+        onRetry: () => void this._loadEod(),
         onForm: (form) => { if (this._settings) this._settings = { ...this._settings, form }; },
         onFormSave: () => this._saveParent(),
         onFormRemove: () => {
