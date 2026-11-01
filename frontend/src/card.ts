@@ -83,8 +83,8 @@ class HouseholdKanbanCard extends LitElement {
   private _sortables = new Map<HTMLElement, Sortable>();
   private _dragFrom?: { parent: Node; next: Node | null };
   private _pending?: Board;
-  /** Card ticks not yet echoed by a board push: `base` = the description they started from. */
-  private _ticks = new Map<string, { base: string; next: string }>();
+  /** Card ticks not yet echoed: `base` is the board description they build on, `sent` every write since, the last is shown. */
+  private _ticks = new Map<string, { base: string; sent: string[] }>();
   private _seq = 0; // bumped per opened dialog, so a late write cannot touch a newer one
   private _returnTo?: () => HTMLElement | null | undefined;
   private _unsub?: Promise<() => void>;
@@ -150,7 +150,12 @@ class HouseholdKanbanCard extends LitElement {
   private _subscribe(): void {
     if (this._unsub || this._retry !== undefined || !this.hass || !this.isConnected) return;
     const p = subscribeBoard(this.hass, (board) => {
-      for (const [uid, tk] of this._ticks) if (board.items.find((i) => i.uid === uid)?.description !== tk.base) this._ticks.delete(uid);
+      // keep the overlay while the board still shows the base or an earlier write of ours; drop it on our last
+      // write's echo or on anything else (a foreign write, the item gone)
+      for (const [uid, tk] of this._ticks) {
+        const d = board.items.find((i) => i.uid === uid)?.description;
+        if (d === undefined || (d !== tk.base && !tk.sent.slice(0, -1).includes(d))) this._ticks.delete(uid);
+      }
       if (this._dragFrom) { this._pending = board; return; } // applied when the drag ends
       this._board = board; this._loadFailed = false;
     });
@@ -549,12 +554,18 @@ class HouseholdKanbanCard extends LitElement {
       // ponytail: the whole description is written, so two people ticking in the same second is last write wins;
       // a per-line server op can come later. Own rapid ticks build on `_ticks` until the board echoes them.
       onLines: (item, description) => {
-        const base = this._ticks.get(item.uid)?.base ?? this._board?.items.find((i) => i.uid === item.uid)?.description ?? item.description;
-        this._ticks.set(item.uid, { base, next: description });
+        const tk = this._ticks.get(item.uid) ?? { base: this._board?.items.find((i) => i.uid === item.uid)?.description ?? item.description, sent: [] };
+        this._ticks.set(item.uid, { base: tk.base, sent: [...tk.sent, description] });
         this.requestUpdate();
-        updateItem(hass, item.uid, { description }).catch((err) => {
+        // drop the overlay only while this write is still the shown one
+        const dropIfLast = () => {
+          if (this._ticks.get(item.uid)?.sent.at(-1) === description) { this._ticks.delete(item.uid); this.requestUpdate(); }
+        };
+        // ponytail: a write that resolves without an echo (state unchanged) would leave the overlay forever, so it
+        // expires after 10 s; a slower echo than that briefly shows the old state again
+        updateItem(hass, item.uid, { description }).then(() => { window.setTimeout(dropIfLast, 10_000); }, (err) => {
           console.warn("household_kanban: update_item failed", err);
-          if (this._ticks.get(item.uid)?.next === description) { this._ticks.delete(item.uid); this.requestUpdate(); }
+          dropIfLast();
           this._fail("err_update");
         });
       },
@@ -569,7 +580,7 @@ class HouseholdKanbanCard extends LitElement {
     const people = cfg.people ?? Object.keys(hass.states).filter((id) => id.startsWith("person."));
     const f = this._filter;
     const scoped = board.items.filter((i) => parents.some((p) => p.id === i.parent))
-      .map((i) => { const tk = this._ticks.get(i.uid); return tk ? { ...i, description: tk.next } : i; });
+      .map((i) => { const tk = this._ticks.get(i.uid); return tk ? { ...i, description: tk.sent.at(-1) as string } : i; });
     const shown = scoped.filter((i) => (!f.who || i.assignee === f.who) && (!f.parent || i.parent === f.parent));
 
     return html`<ha-card>

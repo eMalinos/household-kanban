@@ -39,6 +39,11 @@ test("add trims and ignores empty", () => {
   expect(remove(lines, 1)).toEqual([L(false, "a")]);
 });
 
+test("a U+2028/U+2029 inside an item stays in that item (same as test_checklist.py)", () => {
+  expect(split("- [ ] a b\n- [x] c")).toEqual({ note: "", lines: [L(false, "a b"), L(true, "c")] });
+  expect(split("- [ ] a b").lines).toEqual([L(false, "a b")]);
+});
+
 test("progress", () => {
   expect(progress([L(false, "a"), L(true, "b"), L(true, "c")])).toEqual({ done: 2, total: 3 });
   expect(progress([])).toEqual({ done: 0, total: 0 });
