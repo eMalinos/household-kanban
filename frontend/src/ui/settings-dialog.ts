@@ -1,6 +1,6 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { Hass, Settings, SettingsPatch } from "../api";
-import { DONE_DAYS, toggleIn, type CardConfig } from "../config";
+import { DONE_DAYS, LANG_NAMES, LANGUAGES, toggleIn, type CardConfig } from "../config";
 import type { ColumnId } from "../logic/columns";
 import { t, tn, type Key } from "../i18n";
 import type { Parent } from "../types";
@@ -123,6 +123,8 @@ function boardTab(d: CardConfig, e: SettingsEvents): TemplateResult {
     <section class="set-sec">
       <h3 class="dlg-label">${L("view")}</h3>
       ${seg<CardConfig["group"]>(L("group_label"), [["date", L("group_date")], ["priority", L("group_priority")]], d.group, (group) => e.onChange({ group }))}
+      ${seg<CardConfig["language"]>(L("language"), [[undefined, L("lang_ha")], ...LANGUAGES.map((l): [CardConfig["language"], string] => [l, LANG_NAMES[l]])],
+        d.language, (language) => e.onChange({ language }))}
     </section>
     <section class="set-sec">
       <h3 class="dlg-label">${L("sort_order")}</h3>

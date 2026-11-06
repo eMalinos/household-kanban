@@ -7,11 +7,15 @@ export interface CardConfig {
   group?: "date" | "priority";
   parents?: string[];
   people?: string[];
+  language?: "cs" | "en"; // left out = follow Home Assistant
 }
 
 export const COLUMN_IDS: ColumnId[] = ["todo", "later", "week", "today", "overdue", "done"];
 export const DEFAULT_COLUMNS: ColumnId[] = ["todo", "week", "today", "done"];
 export const DONE_DAYS = [1, 3, 7, 30] as const;
+export const LANGUAGES = ["cs", "en"] as const;
+/** Each language under its own name, so it can be found whatever the card shows now. */
+export const LANG_NAMES: Record<(typeof LANGUAGES)[number], string> = { cs: "Čeština", en: "English" };
 
 /** The single place for defaults and validation; throws on unknown column ids (HA shows the message). */
 export function normalizeConfig(raw: CardConfig): CardConfig {
@@ -27,6 +31,7 @@ export function normalizeConfig(raw: CardConfig): CardConfig {
   };
   if (raw.parents) out.parents = raw.parents;
   if (raw.people) out.people = raw.people;
+  if (LANGUAGES.includes(raw.language as never)) out.language = raw.language;
   return out;
 }
 
@@ -40,6 +45,11 @@ export function toggleIn(list: string[] | undefined, all: string[], id: string, 
 /** The raw card config with `config` applied: HA-owned and unknown keys stay, filters that are off are dropped. */
 export function mergeConfig(raw: Record<string, unknown>, config: CardConfig): Record<string, unknown> {
   const out: Record<string, unknown> = { ...raw, ...config };
-  for (const k of ["parents", "people"] as const) if (!(k in config)) delete out[k];
+  for (const k of ["parents", "people", "language"] as const) if (!(k in config)) delete out[k];
   return out;
+}
+
+/** The card's language: its own pick, else the user's Home Assistant language. */
+export function cardLang(hass: { locale?: { language?: string }; language?: string }, config: CardConfig | undefined): string {
+  return config?.language ?? hass.locale?.language ?? hass.language ?? "en";
 }

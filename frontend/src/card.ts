@@ -9,7 +9,7 @@ import { columnOf, type ColumnId, type Ctx } from "./logic/columns";
 import { dropPatch, isDrag, type Patch } from "./logic/drop";
 import { retryDelay } from "./logic/retry";
 import { keepDefined } from "./register";
-import { mergeConfig, normalizeConfig, type CardConfig } from "./config";
+import { cardLang, mergeConfig, normalizeConfig, type CardConfig } from "./config";
 import { dashboardUrlPath, replaceCard } from "./logic/lovelace";
 import "./editor";
 import { t, tn, type Key } from "./i18n";
@@ -530,7 +530,7 @@ class HouseholdKanbanCard extends LitElement {
   protected render() {
     const hass = this.hass, cfg = this._config, board = this._board;
     if (!hass || !cfg) return nothing;
-    const lang = hass.locale?.language ?? hass.language ?? "en";
+    const lang = cardLang(hass, cfg);
     if (!board) return html`<ha-card><div class="loading">${t(lang, this._loadFailed ? "err_load" : "loading")}</div></ha-card>`;
 
     const now = new Date();

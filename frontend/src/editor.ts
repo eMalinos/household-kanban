@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { subscribeBoard, type Hass } from "./api";
-import { DONE_DAYS, mergeConfig, normalizeConfig, toggleIn, type CardConfig } from "./config";
+import { cardLang, DONE_DAYS, LANG_NAMES, LANGUAGES, mergeConfig, normalizeConfig, toggleIn, type CardConfig } from "./config";
 import type { ColumnId } from "./logic/columns";
 import { keepDefined } from "./register";
 import { retryDelay } from "./logic/retry";
@@ -82,7 +82,7 @@ class HouseholdKanbanCardEditor extends LitElement {
   protected render() {
     const cfg = this._config, hass = this.hass;
     if (!cfg || !hass) return nothing;
-    const lang = hass.locale?.language ?? hass.language ?? "en";
+    const lang = cardLang(hass, cfg);
     const L = (k: Key) => t(lang, k);
     const people = Object.entries(hass.states).filter(([id]) => id.startsWith("person."))
       .map(([id, s]) => ({ id, name: String(s.attributes.friendly_name ?? id) }));
@@ -107,6 +107,11 @@ class HouseholdKanbanCardEditor extends LitElement {
       <select aria-label=${L("group_label")} @change=${(e: Event) => this._set({ group: (e.target as HTMLSelectElement).value as CardConfig["group"] })}>
         <option value="date" ?selected=${cfg.group === "date"}>${L("group_date")}</option>
         <option value="priority" ?selected=${cfg.group === "priority"}>${L("group_priority")}</option>
+      </select>
+      <h3>${L("language")}</h3>
+      <select aria-label=${L("language")} @change=${(e: Event) => this._set({ language: ((e.target as HTMLSelectElement).value || undefined) as CardConfig["language"] })}>
+        <option value="" ?selected=${!cfg.language}>${L("lang_ha")}</option>
+        ${LANGUAGES.map((l) => html`<option value=${l} ?selected=${cfg.language === l}>${LANG_NAMES[l]}</option>`)}
       </select>
       <h3>${L("filter_parents")}</h3>
       ${this._checks("parents", this._parents)}
