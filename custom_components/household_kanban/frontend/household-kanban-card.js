@@ -2496,7 +2496,10 @@ const sr = ln`
     --kb-warm-text: var(--bento-warm-text, var(--kb-accent));
     --kb-text: var(--bento-text, var(--primary-text-color, #1c2128));
     --kb-text-2: var(--bento-text-2, var(--secondary-text-color, #646c77));
-    --kb-shadow: var(--bento-shadow, var(--ha-card-box-shadow, 0 1px 2px rgba(0, 0, 0, 0.08)));
+    /* --bento-shadow is Bento's shadow strength (a number), not a box-shadow */
+    --kb-shadow: var(--bento-card-shadow, var(--ha-card-box-shadow, 0 1px 2px rgba(0, 0, 0, 0.08)));
+    /* design v7: a column is a shade off the ground (darker in light, lighter in dark) with a border */
+    --kb-col: color-mix(in srgb, var(--bento-ground, var(--primary-background-color, #eceef1)) 96%, var(--kb-text));
     --kb-raised: var(--bento-raised, var(--kb-card));
     --kb-raised-shadow: var(--bento-raised-shadow, 0 1px 2px rgba(0, 0, 0, 0.1));
     --kb-inset: var(--bento-idle-shadow, inset 0 1px 3px rgba(0, 0, 0, 0.08));
@@ -2554,7 +2557,7 @@ const sr = ln`
   .ava.none { background: transparent; border: 1.5px dashed var(--kb-border); color: var(--kb-text-2); box-shadow: none; }
 
   .board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 12px; overflow-x: auto; align-items: start; scroll-snap-type: x proximity; scrollbar-width: none; }
-  .col { display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 20px; background: var(--kb-fill); box-shadow: var(--kb-inset); min-width: 0; scroll-snap-align: start; }
+  .col { display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 20px; background: var(--kb-col); border: 1px solid var(--kb-border); min-width: 0; scroll-snap-align: start; }
   .col-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 2px; }
   .col-head .led { width: 8px; height: 8px; border-radius: 50%; background: var(--kb-text-2); }
   .col-head .label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--kb-text-2); }
