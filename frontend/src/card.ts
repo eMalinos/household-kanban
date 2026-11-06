@@ -143,7 +143,10 @@ class HouseholdKanbanCard extends LitElement {
   }
 
   protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass")) this._subscribe();
+    if (changed.has("hass")) {
+      this._subscribe();
+      this.toggleAttribute("dark", !!this.hass?.themes?.darkMode); // design v7 light / dark shadows
+    }
   }
 
   /** Subscribe once; on failure retry on a capped backoff timer, never on hass updates. */

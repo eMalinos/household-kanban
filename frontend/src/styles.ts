@@ -11,13 +11,14 @@ export const styles = css`
     --kb-warm-text: var(--bento-warm-text, var(--kb-accent));
     --kb-text: var(--bento-text, var(--primary-text-color, #1c2128));
     --kb-text-2: var(--bento-text-2, var(--secondary-text-color, #646c77));
-    /* --bento-shadow is Bento's shadow strength (a number), not a box-shadow */
-    --kb-shadow: var(--bento-card-shadow, var(--ha-card-box-shadow, 0 1px 2px rgba(0, 0, 0, 0.08)));
+    /* Bento gives the palette; shadows, wells and raised controls are design v7's,
+       not Bento's button / inner tile styles (glass wells vanish on the white dialog) */
+    --kb-shadow: 0 1px 2px rgba(60, 40, 20, 0.05), 0 6px 18px rgba(60, 40, 20, 0.05);
     /* design v7: a column is a shade off the ground (darker in light, lighter in dark) with a border */
     --kb-col: color-mix(in srgb, var(--bento-ground, var(--primary-background-color, #eceef1)) 96%, var(--kb-text));
-    --kb-raised: var(--bento-raised, var(--kb-card));
-    --kb-raised-shadow: var(--bento-raised-shadow, 0 1px 2px rgba(0, 0, 0, 0.1));
-    --kb-inset: var(--bento-idle-shadow, inset 0 1px 3px rgba(0, 0, 0, 0.08));
+    --kb-raised: linear-gradient(0deg, color-mix(in srgb, var(--kb-fill) 55%, var(--kb-border)) 0%, var(--kb-fill) 30%, var(--kb-card) 100%);
+    --kb-raised-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.08), 0 3px 8px rgba(0, 0, 0, 0.05);
+    --kb-inset: inset 0 1px 3px rgba(0, 0, 0, 0.08);
     --c-red: var(--bento-rgb-red, 255, 59, 48);
     --c-orange: var(--bento-rgb-orange, 255, 149, 0);
     --c-yellow: var(--bento-rgb-yellow, 255, 204, 0);
@@ -32,6 +33,12 @@ export const styles = css`
     --c-grey: var(--bento-rgb-grey, 142, 142, 147);
     display: block;
     color: var(--kb-text);
+  }
+  :host([dark]) {
+    --kb-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --kb-raised: linear-gradient(0deg, var(--kb-card) 0%, color-mix(in srgb, var(--kb-fill) 82%, #fff) 100%);
+    --kb-raised-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.45), 0 3px 8px rgba(0, 0, 0, 0.3);
+    --kb-inset: inset 0 1px 3px rgba(0, 0, 0, 0.5);
   }
   * { box-sizing: border-box; }
   button { font: inherit; cursor: pointer; color: inherit; }
@@ -55,8 +62,10 @@ export const styles = css`
   .seg button[aria-pressed="true"] { border-color: var(--kb-border); background: var(--kb-raised); box-shadow: var(--kb-raised-shadow); color: var(--kb-text); }
 
   .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-  .people, .parents { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .people, .parents { display: flex; gap: 6px; }
   .parents { flex-wrap: wrap; }
+  /* scrolls sideways; the padding keeps the chips' shadows from being clipped to a rectangle */
+  .people { overflow-x: auto; scrollbar-width: none; padding: 6px 10px 12px; margin: -6px -10px -12px; }
   .person { display: flex; align-items: center; gap: 8px; flex: none; padding: 3px 12px 3px 3px; border-radius: 999px; border: 0; background: transparent; font-size: 13px; font-weight: 600; color: var(--kb-text-2); }
   .person[aria-pressed="true"] { background: var(--kb-warm); color: var(--kb-warm-text); }
   .people.has-filter .person[aria-pressed="false"] { opacity: 0.45; }
