@@ -5,7 +5,6 @@ export interface Hass {
   states: Record<string, { state: string; attributes: Record<string, unknown> }>;
   locale?: { language?: string; first_weekday?: string };
   language?: string;
-  themes?: { darkMode?: boolean };
   user?: { is_admin: boolean };
   connection: {
     subscribeMessage<T>(cb: (event: T) => void, msg: Record<string, unknown>): Promise<() => void>;
