@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { mergeConfig, normalizeConfig, toggleIn } from "../src/config";
+import { cardLang, mergeConfig, normalizeConfig, toggleIn } from "../src/config";
 
 test("fills defaults", () => {
   expect(normalizeConfig({ type: "custom:household-kanban-card" })).toEqual({
@@ -41,4 +41,12 @@ test("mergeConfig keeps unknown keys and drops filters that are off", () => {
   const out = mergeConfig(raw, normalizeConfig({ type: "x", columns: ["later"], people: ["p"] }));
   expect(out).toMatchObject({ grid_options: { rows: 8 }, week_end: "sunday", people: ["p"], columns: ["todo", "later"] });
   expect(out).not.toHaveProperty("parents");
+});
+
+test("language: own pick wins over Home Assistant, unknown or left out follows HA", () => {
+  const hass = { locale: { language: "cs" }, language: "cs" };
+  expect(cardLang(hass, normalizeConfig({ type: "x", language: "en" }))).toBe("en");
+  expect(normalizeConfig({ type: "x", language: "de" } as never)).not.toHaveProperty("language");
+  expect(cardLang(hass, normalizeConfig({ type: "x" }))).toBe("cs");
+  expect(mergeConfig({ type: "x", language: "en" }, normalizeConfig({ type: "x" }))).not.toHaveProperty("language");
 });

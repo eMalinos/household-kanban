@@ -59,6 +59,7 @@ The visual editor covers all options. Admins also get a gear button on the card:
 | `group` | `date` | Default grouping: `date` or `priority`. |
 | `parents` | all | Parent IDs to show. |
 | `people` | all `person.*` | People offered as assignees and filters. |
+| `language` | HA language | `cs` or `en` to show the card in that language whatever Home Assistant uses. |
 
 Unknown column ids make the card show a configuration error. Items sort by due date and time (no time = end of day), then priority, then age.
 
