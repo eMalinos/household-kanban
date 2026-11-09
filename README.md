@@ -21,6 +21,10 @@ A shared household board for Home Assistant. Tasks live in ordinary `todo.*` ent
 
 The integration serves the card itself, so no Lovelace resource is needed.
 
+## Look
+
+The card follows the Homecraft card style: it reads the `--hfb-*` theme variables (card, fill, accent, raised and primary buttons, segmented controls, soft panels). The Homecraft theme sets them, the Bento theme maps them, and under any other theme the card falls back to the standard Home Assistant colours. List colours stay the colour picked for each list.
+
 ## Options
 
 Settings → Devices & services → Household Kanban → Configure.

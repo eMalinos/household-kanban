@@ -60,6 +60,7 @@ export function renderHistory(s: HistoryState, e: HistoryEnv): TemplateResult {
   return html`<dialog class="kb-dialog kb-history" aria-labelledby="kb-hist-title" @close=${e.onClose} @click=${onBackdrop}>
     <div class="dlg">
       <div class="dlg-head">
+        <span class="dot idle"><ha-icon .icon=${"mdi:history"}></ha-icon></span>
         <div class="grow"><h2 id="kb-hist-title" class="hist-title">${L("history")}</h2>
           <span class="hist-sub">${t(e.lang, "hist_total", { n: s.total })}</span></div>
         <button class="round-btn" type="button" aria-label=${L("close")} @click=${e.onClose}>

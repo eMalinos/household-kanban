@@ -586,6 +586,7 @@ class HouseholdKanbanCard extends LitElement {
     return html`<ha-card>
       ${this._notice ? html`<div class="notice" role="alert">${t(lang, this._notice)}</div>` : nothing}
       <header class=${this._narrow ? "narrow" : ""}>
+        <span class="dot hdr-dot"><ha-icon .icon=${"mdi:format-list-checks"}></ha-icon></span>
         <div class="titles"><h1>${t(lang, "title")}</h1><div class="summary">${this._summary(scoped, ctx, lang)}</div></div>
         ${hass.user?.is_admin ? html`<button class="round-btn gear-btn" type="button" aria-label=${t(lang, "settings")} title=${t(lang, "settings")}
           @click=${() => this._openSettings()}>${GEAR}</button>` : nothing}

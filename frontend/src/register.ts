@@ -64,6 +64,7 @@ export function keepDefined(name: string, ctor: CustomElementConstructor): void 
   window.addEventListener("load", () => ensure());
   const t0 = Date.now();
   const tick = (): void => {
+    if (typeof window === "undefined") return; // test environment torn down
     ensure();
     const elapsed = Date.now() - t0;
     if (elapsed < 20_000) window.setTimeout(tick, elapsed < 3000 ? 40 : 250);

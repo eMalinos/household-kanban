@@ -1,13 +1,17 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { columnOf, type ColumnId, type Ctx } from "../logic/columns";
 import { compareItems } from "../logic/sort";
-import { t, type Key } from "../i18n";
+import { t, tn, type Key } from "../i18n";
+import { parseDue, startOfDay } from "../logic/dates";
 import type { Item } from "../types";
-import { renderItem, type Env } from "./item-card";
+import { colorClass, renderItem, type Env } from "./item-card";
+import { TILE_META } from "./tiles";
+
+const overdue = (items: Item[], ctx: Ctx) => items.filter((i) => i.due && startOfDay(parseDue(i.due).date) < startOfDay(ctx.now)).length;
 
 export const ALL_COLUMNS: ColumnId[] = ["todo", "later", "week", "overdue", "today", "done"];
 
-interface Col { id: string; label: string; led?: string; items: Item[]; done?: boolean }
+interface Col { id: string; label: string; icon: string; color: string; items: Item[]; done?: boolean }
 
 export interface BoardView {
   ctx: Ctx; group: "date" | "priority";
@@ -26,15 +30,15 @@ export function buildColumns(items: Item[], v: Pick<BoardView, "ctx" | "group">,
   const cols: Col[] = v.group === "date"
     ? ALL_COLUMNS.filter((c) => c !== "done" && (c === "todo" || ctx.enabled.has(c))).map((c) => ({
         id: c, label: t(lang, `col_${c}` as Key),
-        led: c === "overdue" ? "rgb(var(--c-red))" : c === "week" || c === "today" ? "var(--kb-accent)" : undefined,
+        ...TILE_META[c],
         items: open.filter((i) => columnOf(i, ctx) === c).sort(compareItems),
       }))
     : ([1, 2, 3] as const).map((p) => ({
         id: `p${p}`, label: t(lang, `prio_${p}` as Key),
-        led: p === 1 ? "rgb(var(--c-red))" : p === 2 ? "rgb(var(--c-orange))" : undefined,
+        icon: "mdi:flag-outline", color: ["", "red", "orange", "grey"][p],
         items: open.filter((i) => i.priority === p).sort(compareItems),
       }));
-  if (ctx.enabled.has("done")) cols.push({ id: "done", label: t(lang, "col_done"), led: "rgb(var(--c-green))", items: done, done: true });
+  if (ctx.enabled.has("done")) cols.push({ id: "done", label: t(lang, "col_done"), ...TILE_META.done, items: done, done: true });
   return { cols, olderDone };
 }
 
@@ -43,8 +47,10 @@ export function renderBoard(items: Item[], v: BoardView, env: Env): TemplateResu
   return html`<div class="board">${cols.map((col) => {
     return html`<section class="col" data-col=${col.id}>
       <div class="col-head">
-        <span class="led" style=${col.led ? `background:${col.led}` : ""}></span>
-        <span class="label">${col.label}</span><span class="count">${col.items.length}</span>
+        <span class="dot ${colorClass(col.color)}"><ha-icon .icon=${col.icon}></ha-icon></span>
+        <span class="label">${col.label}</span>
+        ${col.id === "today" && overdue(col.items, v.ctx) ? html`<span class="pill c-red">${tn(env.lang, "sum_overdue", overdue(col.items, v.ctx))}</span>` : nothing}
+        <span class="count">${col.items.length}</span>
         ${col.done || col.id === "overdue" ? nothing : html`<button class="add" type="button" aria-label=${`${t(env.lang, "add_here")}: ${col.label}`} @click=${() => v.onAdd(col.id)}>+</button>`}
       </div>
       ${col.items.map((e) => renderItem(e, env, v.group === "date"))}

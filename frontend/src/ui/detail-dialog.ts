@@ -98,6 +98,7 @@ export function renderDialog(d: Draft, e: DialogEnv): TemplateResult {
   return html`<dialog class="kb-dialog" aria-label=${isNew ? L("new_task") : d.heading} @close=${e.onClose} @click=${onBackdrop}>
     <div class="dlg">
       <div class="dlg-head">
+        ${parentDot(e.parents.find((p) => p.id === d.parent))}
         <span class="dlg-kicker">${isNew ? L("new_note") : L("f_title")}</span>
         ${isNew ? nothing : html`<button class="pill-btn ${d.status === "completed" ? "on" : ""}" type="button" @click=${e.onToggleDone}>
           ${L(d.status === "completed" ? "mark_open" : "mark_done")}</button>`}
