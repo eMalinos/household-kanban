@@ -4,7 +4,8 @@ import { DONE_DAYS, LANG_NAMES, LANGUAGES, toggleIn, type CardConfig } from "../
 import type { ColumnId } from "../logic/columns";
 import { t, tn, type Key } from "../i18n";
 import type { Parent } from "../types";
-import { avatar, PARENT_COLORS, parentDot, personName } from "./item-card";
+import { avatar, colorClass, PARENT_COLORS, parentDot, personName } from "./item-card";
+import { TILE_META } from "./tiles";
 
 export type SettingsTab = "board" | "eod" | "lists";
 
@@ -57,7 +58,7 @@ export interface SettingsEvents {
 
 // Overdue is not offered: it follows the integration's end-of-day mode.
 const COLS: ColumnId[] = ["todo", "later", "week", "today", "done"];
-const TABS: [SettingsTab, Key][] = [["board", "tab_board"], ["eod", "tab_eod"], ["lists", "tab_lists"]];
+const TABS: [SettingsTab, Key, string][] = [["board", "tab_board", "mdi:view-column"], ["eod", "tab_eod", "mdi:weather-night"], ["lists", "tab_lists", "mdi:account-group"]];
 const SCREEN = "M3 5h18v12H3zM8 21h8M12 17v4";
 const HOUSE = "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z";
 const icon = (d: string, size = 16) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${d}></path></svg>`;
@@ -111,7 +112,7 @@ function boardTab(d: CardConfig, e: SettingsEvents): TemplateResult {
     <section class="set-sec">
       <h3 class="dlg-label">${L("columns")}</h3>
       <div class="set-rows">${COLS.map((c) => html`<div class="set-row">
-        <span class="led led-${c}"></span>
+        <span class="dot ${colorClass(TILE_META[c].color)}"><ha-icon .icon=${TILE_META[c].icon}></ha-icon></span>
         <span class="set-text"><span class="set-name">${L(`col_${c}` as Key)}</span><span class="set-hint">${L(`col_hint_${c}` as Key)}</span></span>
         ${toggle(c === "todo" || cols.includes(c), L(`col_${c}` as Key),
           () => e.onChange({ columns: cols.filter((x) => x !== c).concat(cols.includes(c) ? [] : [c]) }), { col: c }, c === "todo")}
@@ -282,6 +283,7 @@ export function renderSettings(s: SettingsState, e: SettingsEvents): TemplateRes
     @cancel=${(ev: Event) => { if (s.form) { ev.preventDefault(); e.onForm(undefined); } }} @click=${onBackdrop}>
     <div class="dlg">
       <div class="dlg-head">
+        <span class="dot idle"><ha-icon .icon=${"mdi:cog"}></ha-icon></span>
         <div class="grow"><span class="dlg-kicker">Household Kanban</span>
           <h2 id="kb-set-title" class="hist-title">${L("settings")}</h2></div>
         <button class="round-btn" type="button" aria-label=${L("close")} @click=${close}>
@@ -289,8 +291,8 @@ export function renderSettings(s: SettingsState, e: SettingsEvents): TemplateRes
         </button>
       </div>
       <div class="set-tabs" role="tablist" aria-label=${L("settings")} @keydown=${arrows}>
-        ${TABS.map(([id, k], i) => html`<button type="button" role="tab" id="kb-tab-${id}" data-tab=${id} aria-selected=${s.tab === id} aria-controls="kb-panel"
-          tabindex=${rove(TABS.map(([x]) => x === s.tab), i)} @click=${() => e.onTab(id)}>${L(k)}</button>`)}
+        ${TABS.map(([id, k, ic], i) => html`<button type="button" role="tab" id="kb-tab-${id}" data-tab=${id} aria-selected=${s.tab === id} aria-controls="kb-panel"
+          tabindex=${rove(TABS.map(([x]) => x === s.tab), i)} @click=${() => e.onTab(id)}><ha-icon .icon=${ic}></ha-icon>${L(k)}</button>`)}
       </div>
       <div class="set-body" id="kb-panel" role="tabpanel" aria-labelledby="kb-tab-${s.tab}">${body}</div>
       ${s.error ? html`<div class="notice" role="alert">${L(s.error)}</div>` : nothing}
