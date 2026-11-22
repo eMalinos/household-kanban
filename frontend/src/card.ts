@@ -29,6 +29,23 @@ import { skipOpen, type Env } from "./ui/item-card";
 const HISTORY_PAGE = 50;
 const NARROW_PX = 600;
 const LONG_PRESS_MS = 500;
+/** A draft whose Save failed (the mobile app often drops the socket and reloads), reopened on the next load. */
+const UNSAVED_KEY = "household_kanban:unsaved";
+
+function keepUnsaved(d: Draft | undefined): void {
+  try {
+    if (d) localStorage.setItem(UNSAVED_KEY, JSON.stringify(d)); else localStorage.removeItem(UNSAVED_KEY);
+  } catch { /* storage blocked: the draft only lives in the open dialog */ }
+}
+
+/** Read and forget, so only one card on the page reopens it. */
+function takeUnsaved(): Draft | undefined {
+  try {
+    const raw = localStorage.getItem(UNSAVED_KEY);
+    localStorage.removeItem(UNSAVED_KEY);
+    return raw ? (JSON.parse(raw) as Draft) : undefined;
+  } catch { return undefined; }
+}
 const GEAR = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
 class HouseholdKanbanCard extends LitElement {
@@ -158,6 +175,8 @@ class HouseholdKanbanCard extends LitElement {
       }
       if (this._dragFrom) { this._pending = board; return; } // applied when the drag ends
       this._board = board; this._loadFailed = false;
+      const unsaved = this._draft ? undefined : takeUnsaved();
+      if (unsaved) { this._draft = { ...unsaved, confirmDelete: false }; this._dlgError = "err_unsaved"; }
     });
     this._unsub = p;
     p.then(() => { if (this._unsub === p) this._attempts = 0; }, () => {
@@ -180,6 +199,7 @@ class HouseholdKanbanCard extends LitElement {
     this._dlgError = undefined;
     try {
       await write();
+      keepUnsaved(undefined);
       if (seq === this._seq) this._draft = undefined;
     } catch (e) {
       console.warn("household_kanban: write failed", e);
@@ -194,9 +214,8 @@ class HouseholdKanbanCard extends LitElement {
     if (!hass || !d) return;
     const item = d.uid ? this._board?.items.find((i) => i.uid === d.uid) : undefined;
     if (d.uid && !item) { this._dlgError = "err_save"; return; } // deleted meanwhile: never turn an edit into a create
-    void this._dialogWrite("err_save", () => item
-      ? updateItem(hass, item.uid, changedFields(item, d))
-      : createItem(hass, fieldsOf(d)));
+    void this._dialogWrite("err_save", () => (item ? updateItem(hass, item.uid, changedFields(item, d)) : createItem(hass, fieldsOf(d)))
+      .catch((e: unknown) => { keepUnsaved(d); throw e; }));
   }
 
   /** Tap on a card; a click that ends a drag is not a tap. */
@@ -630,7 +649,7 @@ class HouseholdKanbanCard extends LitElement {
         hass, lang, now, parents, people, busy: this._busy, error: this._dlgError,
         onChange: (patch) => { if (this._draft) this._draft = { ...this._draft, ...patch }; },
         onSave: () => this._save(),
-        onClose: () => { this._draft = undefined; },
+        onClose: () => { this._draft = undefined; keepUnsaved(undefined); },
         onToggleDone: () => {
           const d = this._draft, uid = d?.uid;
           if (!d || !uid) return;
