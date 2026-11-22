@@ -218,3 +218,46 @@ describe("opening and the dialog", () => {
 test("sections view gives the board the full width", () => {
   expect(card.getGridOptions()).toMatchObject({ columns: "full" });
 });
+
+describe("a failed Save survives a reload", () => {
+  const store = new Map<string, string>();
+  beforeEach(() => {
+    store.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  test("the draft reopens on the next load, and Cancel forgets it", async () => {
+    cardEl("a").dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+    await settle();
+    const input = root().querySelector("#kb-title") as HTMLInputElement;
+    input.value = "renamed";
+    input.dispatchEvent(new Event("input"));
+    await settle();
+    gate = Promise.reject(new Error("Connection lost"));
+    gate.catch(() => undefined);
+    btn(/^\s*Save\s*$/).click();
+    await settle(); await settle();
+    gate = undefined;
+
+    card.remove(); // what the app's reload does to the open dialog
+    card = document.createElement("household-kanban-card");
+    card.hass = { states: {}, locale: { language: "en", first_weekday: "monday" },
+      connection: { subscribeMessage: async (cb: (e: unknown) => void) => { push = (b) => cb({ board: b }); return () => undefined; } },
+      callService: async (_d: string, s: string, data: any) => { calls.push([s, data]); } };
+    card.setConfig({ type: "household-kanban-card" });
+    document.body.append(card);
+    await settle();
+    push(board([item("a")]));
+    await settle();
+    expect((root().querySelector("#kb-title") as HTMLInputElement).value).toBe("renamed");
+    expect(root().querySelector("[role=alert]")?.textContent).toMatch(/not saved last time/);
+
+    btn(/^\s*Cancel\s*$/).click();
+    await settle();
+    expect(dialog()).toBeNull();
+    expect(store.size).toBe(0);
+  });
+});
